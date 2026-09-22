@@ -3,6 +3,7 @@
 
 import { viewsForFamily } from '../engine/facts.js';
 import { getUnlockedViews } from '../engine/leitner.js';
+import { strategyHint } from '../engine/strategies.js';
 
 function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -37,7 +38,7 @@ function distractorsFor(view, family) {
   return [...candidates];
 }
 
-export function buildRound(family, card, timeBudgetMs) {
+export function buildRound(family, card, timeBudgetMs, showHint = false) {
   const allViews = viewsForFamily(family);
   const unlockedViews = getUnlockedViews(family, card, allViews);
   const view = randomChoice(unlockedViews);
@@ -51,5 +52,6 @@ export function buildRound(family, card, timeBudgetMs) {
     correctAnswer: view.answer,
     choices,
     timeBudgetMs,
+    hint: showHint ? strategyHint(family) : null,
   };
 }

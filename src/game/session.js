@@ -12,6 +12,8 @@ const SESSION_ROUND_BUDGET = 50;
 const BASE_TIME_MS = 3500;
 const MIN_TIME_MS = 1500;
 const MAX_TIME_MS = 5000;
+const HINT_TIME_MS = 7000; // le temps de lire une astuce et de l'appliquer, pas juste de deviner
+const STRUGGLING_AFTER_ATTEMPTS = 3; // filet de sécurité si un fait reste au palier 0 après ce nombre d'essais
 const MAX_NEW_FACTS_PER_SESSION = 4;
 
 function todayStr() {
@@ -106,7 +108,16 @@ export class Session {
       this.cardsById.set(familyId, card);
     }
     this.currentFamilyId = familyId;
-    return buildRound(family, card, this.timeBudgetMs);
+
+    // Astuce montrée à la toute première rencontre, puis seulement en filet de
+    // sécurité si le fait reste bloqué au palier 0 après plusieurs essais —
+    // jamais pendant les révisions normales.
+    const isFirstExposure = card.totalSeen === 0;
+    const isStruggling = card.box === 0 && card.totalSeen >= STRUGGLING_AFTER_ATTEMPTS;
+    const showHint = isFirstExposure || isStruggling;
+    const timeBudget = showHint ? HINT_TIME_MS : this.timeBudgetMs;
+
+    return buildRound(family, card, timeBudget, showHint);
   }
 
   submitAnswer(correct) {

@@ -85,6 +85,20 @@ html, body {
   margin-bottom: 1.5rem;
 }
 
+#hint {
+  max-width: min(90vw, 480px);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--white);
+  background: #1c1c1c;
+  border: 2px solid var(--red);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1.25rem;
+  text-align: center;
+  line-height: 1.35;
+}
+
 #timerBar {
   width: min(90vw, 480px);
   height: 10px;

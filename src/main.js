@@ -13,6 +13,7 @@ const timerFillEl = document.getElementById('timerFill');
 const scoreEl = document.getElementById('score');
 const pointsEl = document.getElementById('points');
 const comboBadgeEl = document.getElementById('comboBadge');
+const hintEl = document.getElementById('hint');
 const stageEl = document.getElementById('stage');
 const endScreenEl = document.getElementById('endScreen');
 const endStatsEl = document.getElementById('endStats');
@@ -56,6 +57,12 @@ function startRound() {
   choiceRightEl.className = 'choice choice-right';
   stageEl.classList.remove('flash-correct', 'flash-wrong');
   comboBadgeEl.classList.add('hidden');
+  if (currentRound.hint) {
+    hintEl.textContent = currentRound.hint;
+    hintEl.classList.remove('hidden');
+  } else {
+    hintEl.classList.add('hidden');
+  }
   roundStart = performance.now();
   resolved = false;
   tickTimer();
