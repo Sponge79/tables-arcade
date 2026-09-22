@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Sprint des tables</title>
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <span id="score">0 / 0</span>
+  </div>
+
+  <div id="stage">
+    <div id="prompt"></div>
+    <div id="timerBar"><div id="timerFill"></div></div>
+    <div id="choices">
+      <button id="choiceLeft" class="choice choice-left" type="button"></button>
+      <button id="choiceRight" class="choice choice-right" type="button"></button>
+    </div>
+  </div>
+
+  <div id="endScreen" class="hidden">
+    <h1>Session terminée !</h1>
+    <p id="endStats"></p>
+    <button id="restartBtn" type="button">Rejouer (test)</button>
+  </div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
