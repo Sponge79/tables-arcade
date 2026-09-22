@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Tests — moteur de mémorisation</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #111; color: #eee; padding: 2rem; }
+  .pass { color: #4caf50; }
+  .fail { color: #ff5252; font-weight: bold; }
+  #summary { font-size: 1.2rem; margin-top: 1rem; }
+  li { margin: 0.2rem 0; }
+</style>
+</head>
+<body>
+<h1>Tests — moteur Leitner / faits</h1>
+<ul id="results"></ul>
+<div id="summary"></div>
+
+<script type="module">
+import { buildAllFamilies, viewsForFamily, MULT_INTRO_GROUP_ORDER, ADD_INTRO_GROUP_ORDER } from '../src/engine/facts.js';
+import { createCard, recordAnswer, isDue, getUnlockedViews, selectDailyFacts } from '../src/engine/leitner.js';
+
+const results = document.getElementById('results');
+let pass = 0, fail = 0;
+
+function assert(condition, message) {
+  const li = document.createElement('li');
+  if (condition) {
+    pass++;
+    li.className = 'pass';
+    li.textContent = `✓ ${message}`;
+  } else {
+    fail++;
+    li.className = 'fail';
+    li.textContent = `✗ ${message}`;
+  }
+  results.appendChild(li);
+}
+
+function assertEqual(actual, expected, message) {
+  assert(actual === expected, `${message} (attendu: ${expected}, obtenu: ${actual})`);
+}
+
+// --- facts.js ---
+
+const families = buildAllFamilies();
+const multFamilies = families.filter((f) => f.operation === 'mult-div');
+const addFamilies = families.filter((f) => f.operation === 'add-sub');
+
+assertEqual(multFamilies.length, 91, 'nombre de familles ×/÷ pour 0..12 (13*14/2)');
+assertEqual(addFamilies.length, 78, 'nombre de familles +/− pour 1..12 (12*13/2)');
+
+const ids = new Set(families.map((f) => f.id));
+assertEqual(ids.size, families.length, 'aucune famille en double');
+
+// Chaque groupe numéroté (×3,×6 / ×4,×8 / ×9...) enseigne la table complète du nombre
+// (0 à 12), donc 6×7 est couvert par "trois-six" (table du 6) avant même d'arriver au
+// groupe ×7 — c'est encore mieux que l'exemple illustratif du prompt produit.
+const sixSeven = multFamilies.find((f) => (f.a === 6 && f.b === 7) || (f.a === 7 && f.b === 6));
+assertEqual(sixSeven.introGroup, 'trois-six', '6×7 est déjà couvert par la table du 6 (groupe "trois-six")');
+
+const sevenSquare = multFamilies.find((f) => f.a === 7 && f.b === 7);
+assertEqual(sevenSquare.introGroup, 'carres', '7×7 est dans le groupe des carrés (avant "sept-et-reste")');
+
+const remainderFamilies = multFamilies.filter((f) => f.introGroup === 'sept-et-reste');
+assert(
+  remainderFamilies.length > 0 && remainderFamilies.length <= 5,
+  `le groupe final ne contient plus qu une poignée de faits vraiment nouveaux (${remainderFamilies.length} faits : ${remainderFamilies.map((f) => `${f.a}×${f.b}`).join(', ')})`
+);
+
+const zeroFive = multFamilies.find((f) => (f.a === 0 && f.b === 5) || (f.a === 5 && f.b === 0));
+assertEqual(zeroFive.introGroup, 'zeros-uns', '0×5 tombe dans ×0/×1, pas dans ×2,5,10');
+
+const sevenEight = crossesTenFixture();
+function crossesTenFixture() {
+  const f = addFamilies.find((f) => f.a === 7 && f.b === 8);
+  return f;
+}
+assertEqual(sevenEight.introGroup, 'passage-dizaine', '7+8 est priorisé (passe la dizaine)');
+
+const twoThree = addFamilies.find((f) => f.a === 2 && f.b === 3);
+assertEqual(twoThree.introGroup, 'connues', '2+3 est en priorité basse (ne passe pas la dizaine)');
+
+const views67 = viewsForFamily(sixSeven);
+assertEqual(views67.length, 4, '6×7 a 4 vues (6×7, 7×6, 42÷6, 42÷7)');
+
+const viewsSquare = viewsForFamily(sevenSquare);
+assertEqual(viewsSquare.length, 2, '7×7 a seulement 2 vues (mult + div, pas de doublon a=b)');
+
+// --- leitner.js : progression des paliers ---
+
+let card = createCard('mult-6x7', '2026-01-01');
+assertEqual(card.box, 0, 'nouvelle carte commence au palier 0');
+
+card = recordAnswer(card, true, '2026-01-01');
+assertEqual(card.box, 0, 'un seul bon rappel ne fait pas monter de palier (pas encore espacé)');
+assertEqual(card.dueDate, '2026-01-02', 'palier 0 : due le lendemain après un bon rappel');
+
+card = recordAnswer(card, true, '2026-01-01'); // même jour : ne doit pas compter deux fois
+assertEqual(card.spacedCorrectStreak, 1, 'deux bonnes réponses le même jour ne comptent qu une fois pour la promotion');
+
+card = recordAnswer(card, true, '2026-01-02');
+card = recordAnswer(card, true, '2026-01-06');
+assertEqual(card.box, 1, 'après 3 bons rappels à des jours différents, la carte monte au palier 1');
+assertEqual(card.dueDate, '2026-01-09', 'palier 1 : intervalle de 3 jours');
+
+card = recordAnswer(card, false, '2026-01-09');
+assertEqual(card.box, 0, 'une erreur fait redescendre immédiatement au palier 0');
+assertEqual(card.dueDate, '2026-01-09', 'après une erreur, due le jour même (même session)');
+
+// --- leitner.js : vues débloquées ---
+
+const cardNew = createCard('mult-6x7', '2026-01-01');
+const unlockedNew = getUnlockedViews(sixSeven, cardNew, views67);
+assert(unlockedNew.every((v) => v.kind === 'mult'), 'une famille ×/÷ neuve n expose que les vues de multiplication');
+
+let cardMastered = createCard('mult-6x7', '2026-01-01');
+for (let i = 0; i < 2; i++) cardMastered = { ...cardMastered, box: 2 };
+const unlockedMastered = getUnlockedViews(sixSeven, cardMastered, views67);
+assertEqual(unlockedMastered.length, 4, 'au palier 2, les vues de division sont débloquées');
+
+const addFamily = addFamilies.find((f) => f.a === 7 && f.b === 8);
+const addViews = viewsForFamily(addFamily);
+const cardAddNew = createCard(addFamily.id, '2026-01-01');
+const unlockedAddNew = getUnlockedViews(addFamily, cardAddNew, addViews);
+assert(unlockedAddNew.every((v) => v.kind === 'add'), 'une famille +/− neuve n expose que les vues d addition');
+
+// --- leitner.js : sélection quotidienne ---
+
+const cardsById = new Map();
+const { reviewFamilies: r0, newFamilies: n0 } = selectDailyFacts(families, cardsById, '2026-01-01', {
+  maxNewFacts: 4,
+  multIntroGroupOrder: MULT_INTRO_GROUP_ORDER,
+  addIntroGroupOrder: ADD_INTRO_GROUP_ORDER,
+});
+assertEqual(r0.length, 0, 'jour 1 : aucune révision (aucune carte encore créée)');
+assertEqual(n0.length, 4, 'jour 1 : au plus 4 nouveaux faits (plafond de session)');
+assert(n0.every((f) => f.introGroup === 'zeros-uns'), 'jour 1 : les nouveaux faits viennent du tout premier groupe (×0/×1)');
+
+// Simuler l'introduction de TOUTES les familles du groupe "zeros-uns" pour ouvrir le suivant.
+const zerosUnsFamilies = multFamilies.filter((f) => f.introGroup === 'zeros-uns');
+for (const f of zerosUnsFamilies) cardsById.set(f.id, createCard(f.id, '2026-01-01'));
+
+const { newFamilies: n1 } = selectDailyFacts(families, cardsById, '2026-01-01', {
+  maxNewFacts: 4,
+  multIntroGroupOrder: MULT_INTRO_GROUP_ORDER,
+  addIntroGroupOrder: ADD_INTRO_GROUP_ORDER,
+});
+assert(
+  n1.some((f) => f.introGroup === 'deux-cinq-dix'),
+  'une fois "zeros-uns" entièrement introduit, le groupe ×2,×5,×10 s ouvre'
+);
+assert(
+  n1.every((f) => f.introGroup !== 'carres'),
+  'le groupe "carrés" reste fermé tant que ×2,×5,×10 n est pas introduit'
+);
+
+// Carte due pour révision
+const dueCardId = zerosUnsFamilies[0].id;
+cardsById.set(dueCardId, { ...cardsById.get(dueCardId), dueDate: '2026-01-01' });
+const { reviewFamilies: r2 } = selectDailyFacts(families, cardsById, '2026-01-01', {
+  maxNewFacts: 4,
+  multIntroGroupOrder: MULT_INTRO_GROUP_ORDER,
+  addIntroGroupOrder: ADD_INTRO_GROUP_ORDER,
+});
+assert(r2.some((f) => f.id === dueCardId), 'une carte dont la dueDate est atteinte apparaît en révision');
+
+// --- résumé ---
+document.getElementById('summary').innerHTML =
+  `<strong>${pass} réussis, ${fail} échoués</strong>` + (fail === 0 ? ' — tout est vert ✅' : ' — à corriger ❌');
+document.title = fail === 0 ? `✅ ${pass} tests OK` : `❌ ${fail} tests en échec`;
+</script>
+</body>
+</html>
