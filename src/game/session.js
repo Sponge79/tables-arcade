@@ -85,7 +85,12 @@ export class Session {
     this.correctStreak = 0;
     this.roundsPlayed = 0;
     this.roundsCorrect = 0;
+    this.points = 0;
     this.currentFamilyId = null;
+  }
+
+  get comboMultiplier() {
+    return Math.min(4, 1 + Math.floor(this.correctStreak / 3));
   }
 
   hasNext() {
@@ -112,10 +117,14 @@ export class Session {
     saveCards(this.cardsById);
 
     this.roundsPlayed++;
+    let pointsGained = 0;
 
     if (correct) {
       this.roundsCorrect++;
       this.correctStreak++;
+      const multiplier = this.comboMultiplier;
+      pointsGained = 10 * multiplier;
+      this.points += pointsGained;
       if (this.correctStreak >= 4) {
         this.timeBudgetMs = Math.max(MIN_TIME_MS, this.timeBudgetMs - 150);
       }
@@ -127,6 +136,8 @@ export class Session {
       // Palier 0 (raté) : revoir plus tard dans la même session, pas seulement demain.
       this.reinsertLater(this.currentFamilyId);
     }
+
+    return { correct, pointsGained, multiplier: this.comboMultiplier, streak: this.correctStreak };
   }
 
   reinsertLater(familyId) {

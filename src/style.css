@@ -30,6 +30,39 @@ html, body {
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+#points { color: var(--red); }
+#score { color: #999; font-weight: 600; }
+
+#muteBtn {
+  margin-left: auto;
+  background: transparent;
+  border: 2px solid #444;
+  color: #999;
+  border-radius: 999px;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+#muteBtn.muted { color: #444; border-color: #2a2a2a; }
+
+#comboBadge {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--red);
+  margin-bottom: 0.5rem;
+  animation: pop 0.2s ease;
+}
+
+@keyframes pop {
+  from { transform: scale(1.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 #stage {
