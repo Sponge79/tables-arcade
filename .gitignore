@@ -1,0 +1,3 @@
+# Fichiers sources WAV bruts (des centaines de Mo) — seuls les MP3 transcodés
+# dans assets/music/ sont nécessaires pour le jeu et sont versionnés.
+/Musique/
