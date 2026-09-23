@@ -126,6 +126,42 @@ html, body {
   transform: scaleX(1);
 }
 
+#runnerTrack {
+  position: relative;
+  width: min(90vw, 560px);
+  height: 56px;
+  margin-bottom: 0.5rem;
+}
+
+#runner {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, 0);
+}
+
+#runner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--white);
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+#runner::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: -16px;
+  width: 14px;
+  height: 14px;
+  background: var(--red);
+  opacity: 0.55;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
 #choices {
   display: flex;
   gap: 1rem;
@@ -183,5 +219,23 @@ html, body {
   font-weight: 700;
   cursor: pointer;
 }
+
+@keyframes shakeSmall {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(2px, -2px); }
+  50% { transform: translate(-2px, 2px); }
+  75% { transform: translate(2px, 2px); }
+}
+
+@keyframes shakeBig {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-7px, 3px); }
+  40% { transform: translate(7px, -3px); }
+  60% { transform: translate(-7px, -3px); }
+  80% { transform: translate(7px, 3px); }
+}
+
+#app.shake-correct { animation: shakeSmall 0.15s ease-in-out; }
+#app.shake-wrong { animation: shakeBig 0.3s ease-in-out; }
 
 .hidden { display: none !important; }

@@ -10,7 +10,9 @@
 import { Session } from './game/session.js';
 import { playCorrect, playWrong, startMusic, toggleMusic } from './game/audio.js';
 import { initParticles, burst } from './game/particles.js';
+import { initRunner, dashTo, resetRunner } from './game/runner.js';
 
+const appEl = document.getElementById('app');
 const promptEl = document.getElementById('prompt');
 const choiceLeftEl = document.getElementById('choiceLeft');
 const choiceRightEl = document.getElementById('choiceRight');
@@ -26,8 +28,11 @@ const endScreenEl = document.getElementById('endScreen');
 const endStatsEl = document.getElementById('endStats');
 const restartBtn = document.getElementById('restartBtn');
 const muteBtn = document.getElementById('muteBtn');
+const runnerTrackEl = document.getElementById('runnerTrack');
+const runnerEl = document.getElementById('runner');
 
 initParticles();
+initRunner(runnerEl);
 
 let session = new Session();
 let currentRound = null;
@@ -45,6 +50,21 @@ function formatPrompt([a, op, b]) {
   return `${a} ${op} ${b}`;
 }
 
+function runnerOffsetFor(el) {
+  const trackRect = runnerTrackEl.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const trackCenterX = trackRect.left + trackRect.width / 2;
+  const elCenterX = elRect.left + elRect.width / 2;
+  return elCenterX - trackCenterX;
+}
+
+function triggerShake(correct) {
+  const cls = correct ? 'shake-correct' : 'shake-wrong';
+  appEl.classList.remove('shake-correct', 'shake-wrong');
+  void appEl.offsetWidth; // force un reflow pour pouvoir rejouer la même animation
+  appEl.classList.add(cls);
+}
+
 function unlockAudioOnce() {
   if (audioUnlocked) return;
   audioUnlocked = true;
@@ -60,6 +80,7 @@ function startRound() {
   promptEl.textContent = `${formatPrompt(currentRound.prompt)} = ?`;
   stageEl.classList.remove('flash-correct', 'flash-wrong');
   comboBadgeEl.classList.add('hidden');
+  resetRunner();
 
   if (currentRound.hint) {
     hintEl.textContent = currentRound.hint;
@@ -154,6 +175,10 @@ function resolveRound(chosenSide) {
 
   const correctSide = currentRound.choices[0] === currentRound.correctAnswer ? choiceLeftEl : choiceRightEl;
   correctSide.classList.add('choice-correct');
+
+  const dashOffset = chosenEl ? runnerOffsetFor(chosenEl) : 0;
+  dashTo(dashOffset, correct);
+  setTimeout(() => triggerShake(correct), 180);
 
   if (correct) {
     playCorrect(result.multiplier);
