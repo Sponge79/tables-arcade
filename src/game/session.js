@@ -1,8 +1,9 @@
 // Relie le moteur de mémorisation à une session de jeu, pour UNE opération/section
 // à la fois : construit la file de rounds, persiste les cartes Leitner en local,
 // ajuste légèrement le temps imparti selon la réussite récente (zone de flow), et
-// prolonge la pratique (révisions recyclées) jusqu'à ~10-15 minutes réelles plutôt
-// que de s'arrêter dès que les quelques nouveautés du jour sont épuisées.
+// prolonge un peu la pratique (révisions recyclées) plutôt que de s'arrêter net
+// dès que les quelques nouveautés du jour sont épuisées — mais reste courte
+// (~1 minute par section) : un enfant de 10 ans décroche vite au-delà.
 
 import { buildOperationFamilies, introGroupOrderFor } from '../engine/facts.js';
 import { createCard, recordAnswer, selectDailyFacts, promoteFromDiagnostic } from '../engine/leitner.js';
@@ -12,8 +13,8 @@ import { computeProgress } from '../engine/progress.js';
 import { loadAllCards, saveCard } from './storage.js';
 
 const SESSION_ROUND_BUDGET = 400; // filet de sécurité ; c'est le temps, pas ce compteur, qui limite la session
-const TARGET_SESSION_MS = 3 * 60 * 1000; // dosage visé par section : court, pour ne pas lasser
-const MAX_SESSION_MS = 5 * 60 * 1000; // garde-fou si jamais le recyclage tournait en rond
+const TARGET_SESSION_MS = 60 * 1000; // dosage visé par section : court, pour ne pas lasser
+const MAX_SESSION_MS = 90 * 1000; // garde-fou si jamais le recyclage tournait en rond
 const DIAGNOSTIC_SAMPLE_PER_GROUP = 3; // "test rapide" : un échantillon par groupe, pas tout
 const BASE_TIME_MS = 3500;
 const MIN_TIME_MS = 1500;
