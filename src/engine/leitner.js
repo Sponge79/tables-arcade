@@ -18,7 +18,7 @@ export const PROMOTION_THRESHOLD = 3;
 // éviter de faire refaire depuis le début un fait déjà connu, mais pas le palier
 // maximal — une seule bonne réponse sous pression ne prouve pas la mémorisation
 // à long terme, il faudra encore la confirmer à quelques jours d'intervalle.
-const DIAGNOSTIC_BOX = 2;
+export const DIAGNOSTIC_BOX = 2;
 
 export function createCard(familyId, today) {
   return {

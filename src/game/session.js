@@ -5,8 +5,8 @@
 // dès que les quelques nouveautés du jour sont épuisées — mais reste courte
 // (~1 minute par section) : un enfant de 10 ans décroche vite au-delà.
 
-import { buildOperationFamilies, introGroupOrderFor } from '../engine/facts.js';
-import { createCard, recordAnswer, selectDailyFacts, promoteFromDiagnostic } from '../engine/leitner.js';
+import { buildOperationFamilies, introGroupOrderFor, isTrivial } from '../engine/facts.js';
+import { createCard, recordAnswer, selectDailyFacts, promoteFromDiagnostic, DIAGNOSTIC_BOX } from '../engine/leitner.js';
 import { buildRound } from './round.js';
 import { updateStreak } from './streak.js';
 import { computeProgress } from '../engine/progress.js';
@@ -91,6 +91,20 @@ export class Session {
     this.cardsById = new Map();
     for (const family of this.families) {
       if (allCards.has(family.id)) this.cardsById.set(family.id, allCards.get(family.id));
+    }
+
+    // Les faits triviaux (×0, ×1, ÷1, +1, -1) n'ont pas besoin de grimper
+    // lentement palier par palier comme un vrai apprentissage — un enfant de
+    // 10 ans les connaît déjà. On les avance directement au lieu de les faire
+    // refaire encore et encore et de bloquer les groupes suivants derrière eux.
+    for (const family of this.families) {
+      if (!isTrivial(family)) continue;
+      const existing = this.cardsById.get(family.id);
+      if (existing && existing.box >= DIAGNOSTIC_BOX) continue;
+      const boosted = promoteFromDiagnostic(existing, this.today);
+      boosted.familyId = family.id;
+      this.cardsById.set(family.id, boosted);
+      saveCard(family.id, boosted);
     }
 
     if (this.mode === 'diagnostic') {

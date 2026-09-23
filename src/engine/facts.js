@@ -129,6 +129,14 @@ export function introGroupOrderFor(operation) {
   return operation === 'multiplication' || operation === 'division' ? MULT_DIV_INTRO_GROUP_ORDER : ADD_SUB_INTRO_GROUP_ORDER;
 }
 
+// Faits "triviaux" : ×0, ×1, ÷1, +1, -1 (par construction, a est toujours le
+// plus petit facteur/terme, donc a<=1 les capture tous). Un enfant de 10 ans
+// les connaît déjà par cœur — pas besoin de les faire grimper lentement palier
+// par palier comme un fait réellement à apprendre.
+export function isTrivial(family) {
+  return family.a <= 1;
+}
+
 // Les vues jouables d'une famille — toutes appartiennent à la même opération
 // (plus de vues "inverses" débloquées entre opérations : chaque section est
 // désormais indépendante).
