@@ -4,12 +4,24 @@
 let ctx = null;
 let musicOn = true;
 let musicStarted = false;
-let nextBeatTime = 0;
-let beatCount = 0;
+let nextStepTime = 0;
+let stepIndex = 0;
 let musicTimeoutId = null;
 
 const BPM = 128;
 const BEAT_SEC = 60 / BPM;
+const STEP_SEC = BEAT_SEC / 4; // un pas = une double-croche
+const STEPS_PER_BAR = 16;
+
+// Enchaînement d'accords très commun en électro (i–VI–III–VII, ici Am–F–C–G) :
+// une basse (note grave) + un petit motif arpégé par mesure, plutôt qu'un seul
+// battement qui ne change jamais.
+const CHORDS = [
+  { bass: 110.0, arp: [220.0, 261.63, 329.63, 392.0] }, // Am : A2 | A3 C4 E4 G4
+  { bass: 87.31, arp: [174.61, 220.0, 261.63, 349.23] }, // F  : F2 | F3 A3 C4 F4
+  { bass: 130.81, arp: [261.63, 329.63, 392.0, 493.88] }, // C  : C3 | C4 E4 G4 B4
+  { bass: 98.0, arp: [196.0, 246.94, 293.66, 392.0] }, // G  : G2 | G3 B3 D4 G4
+];
 
 function ensureContext() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -69,14 +81,55 @@ function hat(time) {
   noise.start(time);
 }
 
+function bass(time, freq) {
+  const audioCtx = ensureContext();
+  const osc = audioCtx.createOscillator();
+  const filter = audioCtx.createBiquadFilter();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.value = freq;
+  filter.type = 'lowpass';
+  filter.frequency.value = 500;
+  gain.gain.setValueAtTime(0.001, time);
+  gain.gain.linearRampToValueAtTime(0.22, time + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+  osc.connect(filter).connect(gain).connect(audioCtx.destination);
+  osc.start(time);
+  osc.stop(time + 0.4);
+}
+
+function arpNote(time, freq) {
+  const audioCtx = ensureContext();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.001, time);
+  gain.gain.linearRampToValueAtTime(0.1, time + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(time);
+  osc.stop(time + 0.16);
+}
+
 function scheduleMusic() {
   const audioCtx = ensureContext();
   if (musicOn) {
-    while (nextBeatTime < audioCtx.currentTime + 0.2) {
-      kick(nextBeatTime);
-      if (beatCount % 2 === 1) hat(nextBeatTime + BEAT_SEC / 2);
-      nextBeatTime += BEAT_SEC;
-      beatCount++;
+    while (nextStepTime < audioCtx.currentTime + 0.2) {
+      const step = stepIndex % STEPS_PER_BAR;
+      const bar = Math.floor(stepIndex / STEPS_PER_BAR) % CHORDS.length;
+      const chord = CHORDS[bar];
+
+      if (step % 4 === 0) {
+        kick(nextStepTime);
+        arpNote(nextStepTime, chord.arp[step / 4]);
+        if (step === 0) bass(nextStepTime, chord.bass);
+      } else if (step % 4 === 2) {
+        hat(nextStepTime);
+      }
+
+      nextStepTime += STEP_SEC;
+      stepIndex++;
     }
   }
   musicTimeoutId = setTimeout(scheduleMusic, 100);
@@ -87,8 +140,8 @@ export function startMusic() {
   const audioCtx = ensureContext();
   if (musicStarted) return;
   musicStarted = true;
-  nextBeatTime = audioCtx.currentTime + 0.05;
-  beatCount = 0;
+  nextStepTime = audioCtx.currentTime + 0.05;
+  stepIndex = 0;
   scheduleMusic();
 }
 
