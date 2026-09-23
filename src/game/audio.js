@@ -8,7 +8,7 @@ let nextStepTime = 0;
 let stepIndex = 0;
 let musicTimeoutId = null;
 
-const BPM = 172;
+const BPM = 192;
 const BEAT_SEC = 60 / BPM;
 const STEP_SEC = BEAT_SEC / 4; // un pas = une double-croche
 const STEPS_PER_BAR = 16;
@@ -23,32 +23,50 @@ function n(...names) {
   return names.map((name) => (name === null ? null : NOTES[name]));
 }
 
-// Phrase de 4 mesures (Am–F–C–G, la même progression qu'avant) mais composée avec
-// une vraie rythmique — croches entraînantes à la basse, quelques doubles-croches
-// dans la mélodie pour l'énergie "chiptune rapide" plutôt qu'une suite de noires.
-// null = silence à ce pas (sur 16 pas par mesure).
-const CHORDS = [
-  {
-    // Am
-    bass: n('A2', null, 'A2', null, 'A3', null, 'A2', null, 'E3', null, 'A2', null, 'A3', 'A3', 'E3', null),
-    lead: n('A4', null, 'C5', null, 'E5', null, 'A5', null, 'E5', null, 'C5', 'D5', 'E5', null, 'D5', null),
-  },
-  {
-    // F
-    bass: n('F2', null, 'F2', null, 'F3', null, 'F2', null, 'C3', null, 'F2', null, 'F3', 'F3', 'C3', null),
-    lead: n('F4', null, 'A4', 'C5', 'F5', null, 'C5', null, 'A4', null, 'C5', 'D5', 'C5', null, 'A4', null),
-  },
-  {
-    // C
-    bass: n('C3', null, 'C3', null, 'C4', null, 'C3', null, 'G3', null, 'C3', null, 'C4', 'C4', 'G3', null),
-    lead: n('E5', null, 'G5', 'A5', 'G5', null, 'E5', null, 'C5', null, 'E5', null, 'G5', 'B4', 'C5', null),
-  },
-  {
-    // G
-    bass: n('G2', null, 'G2', null, 'G3', null, 'G2', null, 'D3', null, 'G2', null, 'G3', 'G3', 'D3', null),
-    lead: n('G4', null, 'B4', null, 'D5', null, 'G5', null, 'D5', null, 'B4', 'A4', 'G4', null, null, null),
-  },
+// Basse : même progression Am–F–C–G, motif de croches qui bondit entre
+// fondamentale / quinte / octave (formule réutilisée pour les 16 mesures).
+const BASS_ROOTS = [
+  { root: 'A2', fifth: 'E3', octave: 'A3' }, // Am
+  { root: 'F2', fifth: 'C3', octave: 'F3' }, // F
+  { root: 'C3', fifth: 'G3', octave: 'C4' }, // C
+  { root: 'G2', fifth: 'D3', octave: 'G3' }, // G
 ];
+const BASS_SHAPE = [0, null, 0, null, 2, null, 0, null, 1, null, 0, null, 2, 2, 1, null];
+
+function buildBass({ root, fifth, octave }) {
+  const table = { 0: NOTES[root], 1: NOTES[fifth], 2: NOTES[octave] };
+  return BASS_SHAPE.map((degree) => (degree === null ? null : table[degree]));
+}
+
+// 16 mesures (4 passages sur Am–F–C–G) pour que la mélodie ne se répète pas trop
+// vite : thème (1-4) → réponse décalée (5-8) → montée dense (9-12) → résolution
+// qui redescend et laisse de l'air avant de reboucler (13-16).
+const LEAD_BARS = [
+  // Thème
+  n('A4', null, 'C5', null, 'E5', null, 'A5', null, 'E5', null, 'C5', 'D5', 'E5', null, 'D5', null),
+  n('F4', null, 'A4', 'C5', 'F5', null, 'C5', null, 'A4', null, 'C5', 'D5', 'C5', null, 'A4', null),
+  n('E5', null, 'G5', 'A5', 'G5', null, 'E5', null, 'C5', null, 'E5', null, 'G5', 'B4', 'C5', null),
+  n('G4', null, 'B4', null, 'D5', null, 'G5', null, 'D5', null, 'B4', 'A4', 'G4', null, null, null),
+  // Réponse (entrée décalée, registre plus bas)
+  n(null, null, 'E4', null, 'A4', null, 'C5', null, 'E4', null, 'A4', null, 'C5', 'D5', 'E4', null),
+  n('C4', null, 'F4', null, 'A4', null, 'C5', null, 'A4', null, 'F4', null, 'A4', 'C5', 'F4', null),
+  n('G4', null, 'C5', null, 'E5', null, 'G4', null, 'C5', null, 'E5', null, 'D5', null, 'C5', null),
+  n(null, null, 'D4', null, 'G4', null, 'B4', null, 'D5', null, 'B4', null, 'G4', null, 'D4', null),
+  // Montée (dense, registre plus haut, l'énergie "épique")
+  n('E5', null, 'A5', 'G5', 'E5', null, 'C5', null, 'E5', 'G5', 'A5', null, 'E5', 'D5', 'C5', 'E5'),
+  n('C5', null, 'F5', 'E5', 'C5', null, 'A4', null, 'C5', 'D5', 'F5', null, 'C5', 'A4', 'F4', 'A4'),
+  n('E5', null, 'G5', 'A5', 'G5', null, 'E5', null, 'G5', 'A5', 'G5', null, 'E5', 'D5', 'C5', 'E5'),
+  n('D5', null, 'G5', 'A5', 'G5', null, 'D5', null, 'B4', 'D5', 'G4', null, 'D4', 'G4', 'B4', 'D5'),
+  // Résolution (redescend, plus aérée, ramène doucement vers le thème)
+  n('A5', null, null, null, 'E5', null, null, null, 'C5', null, null, null, 'A4', null, 'E4', null),
+  n('F5', null, null, null, 'C5', null, null, null, 'A4', null, null, null, 'F4', null, 'C4', null),
+  n('E5', null, null, null, 'C5', null, null, null, 'G4', null, null, null, 'E4', null, 'C4', null),
+  n('D5', null, 'B4', null, null, null, 'G4', null, null, null, 'D4', null, null, null, null, null),
+];
+
+// Les 16 mesures parcourent Am–F–C–G quatre fois (une fois par section ci-dessus).
+const BAR_ROOTS_CYCLE = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3];
+const BASS_BARS = BAR_ROOTS_CYCLE.map((i) => buildBass(BASS_ROOTS[i]));
 
 function ensureContext() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -162,16 +180,15 @@ function scheduleMusic() {
   if (musicOn) {
     while (nextStepTime < audioCtx.currentTime + 0.2) {
       const step = stepIndex % STEPS_PER_BAR;
-      const bar = Math.floor(stepIndex / STEPS_PER_BAR) % CHORDS.length;
-      const chord = CHORDS[bar];
+      const bar = Math.floor(stepIndex / STEPS_PER_BAR) % LEAD_BARS.length;
 
       if (step === 0 || step === 8) kick(nextStepTime);
       if (step === 4 || step === 12) snare(nextStepTime);
       if (step % 4 === 2) hat(nextStepTime);
 
-      const bassFreq = chord.bass[step];
+      const bassFreq = BASS_BARS[bar][step];
       if (bassFreq) bassNote(nextStepTime, bassFreq);
-      const leadFreq = chord.lead[step];
+      const leadFreq = LEAD_BARS[bar][step];
       if (leadFreq) leadNote(nextStepTime, leadFreq);
 
       nextStepTime += STEP_SEC;
