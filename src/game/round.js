@@ -38,7 +38,7 @@ function distractorsFor(view, family) {
   return [...candidates];
 }
 
-export function buildRound(family, card, timeBudgetMs, showHint = false) {
+export function buildRound(family, card, timeBudgetMs, showHint = false, studyTimeMs = null) {
   const allViews = viewsForFamily(family);
   const unlockedViews = getUnlockedViews(family, card, allViews);
   const view = randomChoice(unlockedViews);
@@ -53,5 +53,6 @@ export function buildRound(family, card, timeBudgetMs, showHint = false) {
     choices,
     timeBudgetMs,
     hint: showHint ? strategyHint(family) : null,
+    studyTimeMs,
   };
 }

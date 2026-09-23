@@ -12,7 +12,8 @@ const SESSION_ROUND_BUDGET = 50;
 const BASE_TIME_MS = 3500;
 const MIN_TIME_MS = 1500;
 const MAX_TIME_MS = 5000;
-const HINT_TIME_MS = 7000; // le temps de lire une astuce et de l'appliquer, pas juste de deviner
+const STUDY_TIME_MS = 12000; // temps calme pour lire l'astuce, sans chrono de réponse ni pression
+const FIRST_ATTEMPT_TIME_MS = 5000; // essai qui suit l'étude : un peu plus généreux qu'une révision normale
 const STRUGGLING_AFTER_ATTEMPTS = 3; // filet de sécurité si un fait reste au palier 0 après ce nombre d'essais
 const MAX_NEW_FACTS_PER_SESSION = 4;
 
@@ -115,9 +116,10 @@ export class Session {
     const isFirstExposure = card.totalSeen === 0;
     const isStruggling = card.box === 0 && card.totalSeen >= STRUGGLING_AFTER_ATTEMPTS;
     const showHint = isFirstExposure || isStruggling;
-    const timeBudget = showHint ? HINT_TIME_MS : this.timeBudgetMs;
+    const timeBudget = showHint ? FIRST_ATTEMPT_TIME_MS : this.timeBudgetMs;
+    const studyTimeMs = showHint ? STUDY_TIME_MS : null;
 
-    return buildRound(family, card, timeBudget, showHint);
+    return buildRound(family, card, timeBudget, showHint, studyTimeMs);
   }
 
   submitAnswer(correct) {

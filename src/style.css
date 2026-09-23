@@ -108,6 +108,16 @@ html, body {
   margin-bottom: 2rem;
 }
 
+#timerBar.timer-study #timerFill { background: var(--white); }
+
+#studyCaption {
+  margin-top: -1rem;
+  margin-bottom: 1.5rem;
+  color: #888;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 #timerFill {
   height: 100%;
   width: 100%;
