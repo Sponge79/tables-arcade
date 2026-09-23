@@ -11,6 +11,7 @@ import { Session } from './game/session.js';
 import { playCorrect, playWrong, startMusic, toggleMusic } from './game/audio.js';
 import { initParticles, burst } from './game/particles.js';
 import { initRunner, dashTo, resetRunner } from './game/runner.js';
+import { checkTierUp } from './game/avatar.js';
 
 const appEl = document.getElementById('app');
 const promptEl = document.getElementById('prompt');
@@ -22,6 +23,7 @@ const scoreEl = document.getElementById('score');
 const pointsEl = document.getElementById('points');
 const streakEl = document.getElementById('streak');
 const streakBannerEl = document.getElementById('streakBanner');
+const avatarBannerEl = document.getElementById('avatarBanner');
 const masteryFillEl = document.getElementById('masteryFill');
 const endProgressEl = document.getElementById('endProgress');
 const comboBadgeEl = document.getElementById('comboBadge');
@@ -64,14 +66,25 @@ function showStreak(session) {
   setTimeout(() => streakBannerEl.classList.add('hidden'), 4000);
 }
 
-function updateMasteryBar(session) {
+function updateAvatar(session) {
   const { overallPercent } = session.getProgress();
   masteryFillEl.style.width = `${overallPercent}%`;
+
+  const { tier, leveledUp } = checkTierUp(overallPercent);
+  runnerEl.classList.remove('tier-0', 'tier-1', 'tier-2', 'tier-3', 'tier-4');
+  runnerEl.classList.add(`tier-${tier}`);
+
+  if (leveledUp) {
+    avatarBannerEl.textContent = `Ton personnage évolue ! (palier ${tier}/4)`;
+    avatarBannerEl.classList.remove('hidden', 'fading');
+    setTimeout(() => avatarBannerEl.classList.add('fading'), 3500);
+    setTimeout(() => avatarBannerEl.classList.add('hidden'), 4000);
+  }
 }
 
 let session = new Session();
 showStreak(session);
-updateMasteryBar(session);
+updateAvatar(session);
 let currentRound = null;
 let timerRAF = null;
 let phaseStart = 0;
@@ -208,7 +221,7 @@ function resolveRound(chosenSide) {
   const result = session.submitAnswer(correct);
   scoreEl.textContent = `${session.roundsCorrect} / ${session.roundsPlayed}`;
   pointsEl.textContent = `${session.points} pt`;
-  updateMasteryBar(session);
+  updateAvatar(session);
   stageEl.classList.add(correct ? 'flash-correct' : 'flash-wrong');
 
   const correctSide = currentRound.choices[0] === currentRound.correctAnswer ? choiceLeftEl : choiceRightEl;
@@ -291,6 +304,7 @@ restartBtn.addEventListener('click', () => {
   endScreenEl.classList.add('hidden');
   session = new Session();
   showStreak(session);
+  updateAvatar(session);
   pointsEl.textContent = '0 pt';
   scoreEl.textContent = '0 / 0';
   startRound();
