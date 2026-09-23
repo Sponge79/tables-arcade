@@ -53,8 +53,14 @@ html, body {
   width: min(90vw, 480px);
 }
 
+.sectionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .sectionBtn {
-  aspect-ratio: 1.2 / 1;
+  aspect-ratio: 1.35 / 1;
   background: #1c1c1c;
   border: 3px solid var(--white);
   border-radius: 18px;
@@ -79,6 +85,17 @@ html, body {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--red);
+}
+
+.sectionDiagnosticBtn {
+  background: transparent;
+  border: 2px solid #444;
+  color: #999;
+  border-radius: 999px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 #menuParentLink {
@@ -120,8 +137,8 @@ html, body {
 #points { color: var(--red); }
 #score { color: #999; font-weight: 600; }
 
+#pauseBtn,
 #muteBtn {
-  margin-left: auto;
   background: transparent;
   border: 2px solid #444;
   color: #999;
@@ -132,7 +149,37 @@ html, body {
   cursor: pointer;
 }
 
+#pauseBtn { margin-left: auto; }
+
 #muteBtn.muted { color: #444; border-color: #2a2a2a; }
+
+#pauseOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(10, 10, 10, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+#pauseOverlay h2 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+#resumeBtn {
+  padding: 0.9rem 1.75rem;
+  background: transparent;
+  color: var(--white);
+  border: 3px solid var(--white);
+  border-radius: 999px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
 
 #comboBadge {
   font-size: 1.1rem;

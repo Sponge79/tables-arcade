@@ -12,7 +12,13 @@ const INTERVAL_DAYS = [1, 3, 7, 18, 30];
 
 // Nombre de bons rappels à des moments espacés (jours différents) nécessaires
 // pour monter de palier — une seule bonne réponse ne prouve pas la mémorisation.
-const PROMOTION_THRESHOLD = 3;
+export const PROMOTION_THRESHOLD = 3;
+
+// Palier accordé par un test rapide (diagnostic) réussi : plus haut que 0 pour
+// éviter de faire refaire depuis le début un fait déjà connu, mais pas le palier
+// maximal — une seule bonne réponse sous pression ne prouve pas la mémorisation
+// à long terme, il faudra encore la confirmer à quelques jours d'intervalle.
+const DIAGNOSTIC_BOX = 2;
 
 export function createCard(familyId, today) {
   return {
@@ -59,6 +65,24 @@ export function recordAnswer(card, correct, today) {
 
   next.dueDate = addDays(today, INTERVAL_DAYS[next.box]);
   return next;
+}
+
+// Un test rapide réussi avance directement une carte au palier DIAGNOSTIC_BOX
+// (jamais en arrière) plutôt que de forcer à recommencer depuis 0 un fait que
+// l'enfant connaît déjà — mais n'accorde pas non plus la maîtrise complète
+// d'un coup : il faudra encore la confirmer à quelques jours d'intervalle.
+export function promoteFromDiagnostic(card, today) {
+  const previousBox = card ? card.box : 0;
+  const box = Math.max(previousBox, DIAGNOSTIC_BOX);
+  return {
+    familyId: card ? card.familyId : undefined,
+    box,
+    dueDate: addDays(today, INTERVAL_DAYS[box]),
+    spacedCorrectStreak: 0,
+    lastCorrectDate: null,
+    lastSeenDate: today,
+    totalSeen: (card ? card.totalSeen : 0) + 1,
+  };
 }
 
 // Un groupe d'introduction est "ouvert" une fois que toutes les familles du groupe

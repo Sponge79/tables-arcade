@@ -18,8 +18,12 @@ import { computeAllOperationsProgress } from './game/summary.js';
 
 const menuScreenEl = document.getElementById('menuScreen');
 const sectionButtons = [...document.querySelectorAll('.sectionBtn')];
+const diagnosticButtons = [...document.querySelectorAll('.sectionDiagnosticBtn')];
 const menuBtn = document.getElementById('menuBtn');
 const menuFromEndBtn = document.getElementById('menuFromEndBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const pauseOverlayEl = document.getElementById('pauseOverlay');
 
 const appEl = document.getElementById('app');
 const promptEl = document.getElementById('prompt');
@@ -56,6 +60,9 @@ let resolved = false;
 let audioUnlocked = false;
 let studying = false;
 let sectionActive = false;
+let isPaused = false;
+let pauseStart = 0;
+let pendingStart = false;
 
 // Phrases d'encouragement variables — pas la même récompense à chaque fois,
 // sans système de loot : juste un peu d'imprévisibilité sympathique.
@@ -101,19 +108,22 @@ function showMenu() {
   sectionActive = false;
   resolved = true;
   studying = false;
+  isPaused = false;
+  pendingStart = false;
+  pauseOverlayEl.classList.add('hidden');
   cancelAnimationFrame(timerRAF);
   populateMenu();
   appEl.classList.add('hidden');
   menuScreenEl.classList.remove('hidden');
 }
 
-function startSection(operation) {
+function startSection(operation, options = {}) {
   menuScreenEl.classList.add('hidden');
   appEl.classList.remove('hidden');
   stageEl.classList.remove('hidden');
   endScreenEl.classList.add('hidden');
 
-  session = new Session(operation);
+  session = new Session(operation, options);
   sectionActive = true;
   pointsEl.textContent = '0 pt';
   scoreEl.textContent = '0 / 0';
@@ -124,6 +134,12 @@ function startSection(operation) {
 
 for (const btn of sectionButtons) {
   btn.addEventListener('click', () => startSection(btn.dataset.operation));
+}
+for (const btn of diagnosticButtons) {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    startSection(btn.dataset.operation, { mode: 'diagnostic' });
+  });
 }
 menuBtn.addEventListener('click', showMenu);
 menuFromEndBtn.addEventListener('click', showMenu);
@@ -304,7 +320,13 @@ function resolveRound(chosenSide) {
     if (chosenEl) chosenEl.classList.add('choice-wrong');
   }
 
-  setTimeout(startRound, 450);
+  setTimeout(() => {
+    if (isPaused) {
+      pendingStart = true;
+      return;
+    }
+    startRound();
+  }, 450);
 }
 
 function renderEndProgress(session) {
@@ -334,13 +356,20 @@ function renderEndProgress(session) {
 function endSession() {
   stageEl.classList.add('hidden');
   endScreenEl.classList.remove('hidden');
-  endStatsEl.textContent = `${session.roundsCorrect} bonnes réponses sur ${session.roundsPlayed} — ${session.points} points. À demain !`;
+  if (session.mode === 'diagnostic') {
+    endStatsEl.textContent = `${session.roundsCorrect} faits déjà connus sur ${session.roundsPlayed} testés — ils ont été avancés dans ta progression !`;
+    restartBtn.textContent = 'Refaire le test rapide';
+  } else {
+    endStatsEl.textContent = `${session.roundsCorrect} bonnes réponses sur ${session.roundsPlayed} — ${session.points} points. À demain !`;
+    restartBtn.textContent = 'Rejouer cette section';
+  }
   renderEndProgress(session);
 }
 
 choiceLeftEl.addEventListener('click', () => resolveRound('left'));
 choiceRightEl.addEventListener('click', () => resolveRound('right'));
 window.addEventListener('keydown', (e) => {
+  if (isPaused) return;
   const key = e.key.toLowerCase();
   if (studying && (key === ' ' || key === 'enter')) {
     skipStudyPhase();
@@ -356,8 +385,35 @@ muteBtn.addEventListener('click', () => {
   muteBtn.classList.toggle('muted', !on);
 });
 
+pauseBtn.addEventListener('click', () => {
+  if (!sectionActive || isPaused || !endScreenEl.classList.contains('hidden')) return;
+  isPaused = true;
+  pauseStart = performance.now();
+  cancelAnimationFrame(timerRAF);
+  session.pause();
+  pauseOverlayEl.classList.remove('hidden');
+});
+
+resumeBtn.addEventListener('click', () => {
+  if (!isPaused) return;
+  const pausedDuration = performance.now() - pauseStart;
+  phaseStart += pausedDuration;
+  isPaused = false;
+  session.resume();
+  pauseOverlayEl.classList.add('hidden');
+
+  if (pendingStart) {
+    pendingStart = false;
+    startRound();
+  } else if (studying) {
+    tickStudyTimer();
+  } else if (!resolved) {
+    tickAnswerTimer();
+  }
+});
+
 restartBtn.addEventListener('click', () => {
-  startSection(session.operation);
+  startSection(session.operation, { mode: session.mode });
 });
 
 showMenu();

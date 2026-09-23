@@ -5,15 +5,16 @@
 // que de s'arrêter dès que les quelques nouveautés du jour sont épuisées.
 
 import { buildOperationFamilies, introGroupOrderFor } from '../engine/facts.js';
-import { createCard, recordAnswer, selectDailyFacts } from '../engine/leitner.js';
+import { createCard, recordAnswer, selectDailyFacts, promoteFromDiagnostic } from '../engine/leitner.js';
 import { buildRound } from './round.js';
 import { updateStreak } from './streak.js';
 import { computeProgress } from '../engine/progress.js';
 import { loadAllCards, saveCard } from './storage.js';
 
 const SESSION_ROUND_BUDGET = 400; // filet de sécurité ; c'est le temps, pas ce compteur, qui limite la session
-const TARGET_SESSION_MS = 13 * 60 * 1000; // dosage visé : 10-15 minutes par jour
-const MAX_SESSION_MS = 20 * 60 * 1000; // garde-fou si jamais le recyclage tournait en rond
+const TARGET_SESSION_MS = 3 * 60 * 1000; // dosage visé par section : court, pour ne pas lasser
+const MAX_SESSION_MS = 5 * 60 * 1000; // garde-fou si jamais le recyclage tournait en rond
+const DIAGNOSTIC_SAMPLE_PER_GROUP = 3; // "test rapide" : un échantillon par groupe, pas tout
 const BASE_TIME_MS = 3500;
 const MIN_TIME_MS = 1500;
 const MAX_TIME_MS = 5000;
@@ -21,6 +22,7 @@ const STUDY_TIME_MS = 12000; // temps calme pour lire l'astuce, sans chrono de r
 const FIRST_ATTEMPT_TIME_MS = 5000; // essai qui suit l'étude : un peu plus généreux qu'une révision normale
 const STRUGGLING_AFTER_ATTEMPTS = 3; // filet de sécurité si un fait reste au palier 0 après ce nombre d'essais
 const MAX_NEW_FACTS_PER_SESSION = 4;
+const DIAGNOSTIC_TIME_MS = 4000; // test rapide : temps fixe, pas d'ajustement adaptatif
 
 function todayStr() {
   const d = new Date();
@@ -57,11 +59,29 @@ function buildInitialQueue(reviewFamilies, newFamilies) {
   return queue;
 }
 
+// "Test rapide" : échantillonne dans TOUS les groupes d'un coup (pas de gating
+// séquentiel) pour vérifier ce que l'enfant sait peut-être déjà, plutôt que de
+// le faire attendre des semaines avant même de pouvoir le montrer.
+function buildDiagnosticQueue(families) {
+  const byGroup = new Map();
+  for (const family of families) {
+    if (!byGroup.has(family.introGroup)) byGroup.set(family.introGroup, []);
+    byGroup.get(family.introGroup).push(family);
+  }
+  const sample = [];
+  for (const group of byGroup.values()) {
+    sample.push(...shuffle(group).slice(0, DIAGNOSTIC_SAMPLE_PER_GROUP));
+  }
+  return shuffle(sample).map((f) => f.id);
+}
+
 export class Session {
-  constructor(operation) {
+  constructor(operation, options = {}) {
     this.operation = operation;
+    this.mode = options.mode === 'diagnostic' ? 'diagnostic' : 'normal';
     this.today = todayStr();
     this.startedAt = Date.now();
+    this.pausedAt = null;
     this.dailyStreak = updateStreak(this.today);
     this.families = buildOperationFamilies(operation);
     this.familiesById = new Map(this.families.map((f) => [f.id, f]));
@@ -72,18 +92,33 @@ export class Session {
       if (allCards.has(family.id)) this.cardsById.set(family.id, allCards.get(family.id));
     }
 
-    const { reviewFamilies, newFamilies } = selectDailyFacts(this.families, this.cardsById, this.today, {
-      maxNewFacts: MAX_NEW_FACTS_PER_SESSION,
-      introGroupOrder: introGroupOrderFor(operation),
-    });
+    if (this.mode === 'diagnostic') {
+      this.queue = buildDiagnosticQueue(this.families);
+    } else {
+      const { reviewFamilies, newFamilies } = selectDailyFacts(this.families, this.cardsById, this.today, {
+        maxNewFacts: MAX_NEW_FACTS_PER_SESSION,
+        introGroupOrder: introGroupOrderFor(operation),
+      });
+      this.queue = buildInitialQueue(reviewFamilies, newFamilies);
+    }
 
-    this.queue = buildInitialQueue(reviewFamilies, newFamilies);
     this.timeBudgetMs = BASE_TIME_MS;
     this.correctStreak = 0;
     this.roundsPlayed = 0;
     this.roundsCorrect = 0;
     this.points = 0;
     this.currentFamilyId = null;
+  }
+
+  pause() {
+    if (this.pausedAt === null) this.pausedAt = Date.now();
+  }
+
+  resume() {
+    if (this.pausedAt !== null) {
+      this.startedAt += Date.now() - this.pausedAt;
+      this.pausedAt = null;
+    }
   }
 
   get comboMultiplier() {
@@ -109,6 +144,9 @@ export class Session {
   }
 
   hasNext() {
+    if (this.mode === 'diagnostic') {
+      return this.queue.length > 0;
+    }
     const elapsed = this.elapsedMs();
     if (this.queue.length === 0 && elapsed < TARGET_SESSION_MS) {
       this.refillQueue();
@@ -119,12 +157,19 @@ export class Session {
   nextRound() {
     const familyId = this.queue.shift();
     const family = this.familiesById.get(familyId);
+    this.currentFamilyId = familyId;
+
+    if (this.mode === 'diagnostic') {
+      // Un test rapide n'enseigne pas : pas d'astuce, pas de temps d'étude,
+      // juste "le sais-tu, oui ou non ?".
+      return buildRound(family, DIAGNOSTIC_TIME_MS, false, null);
+    }
+
     let card = this.cardsById.get(familyId);
     if (!card) {
       card = createCard(familyId, this.today);
       this.cardsById.set(familyId, card);
     }
-    this.currentFamilyId = familyId;
 
     // Astuce montrée à la toute première rencontre, puis seulement en filet de
     // sécurité si le fait reste bloqué au palier 0 après plusieurs essais —
@@ -139,6 +184,8 @@ export class Session {
   }
 
   submitAnswer(correct) {
+    if (this.mode === 'diagnostic') return this.submitDiagnosticAnswer(correct);
+
     const card = this.cardsById.get(this.currentFamilyId);
     const wasFirstExposure = card.totalSeen === 0;
     const updated = recordAnswer(card, correct, this.today);
@@ -172,5 +219,20 @@ export class Session {
   reinsertLater(familyId) {
     const position = Math.min(this.queue.length, 4 + Math.floor(Math.random() * 3));
     this.queue.splice(position, 0, familyId);
+  }
+
+  // Un test rapide n'a pas de combo/points ni de reprise en cas d'erreur —
+  // chaque fait n'est demandé qu'une fois, ce n'est pas une session d'entraînement.
+  submitDiagnosticAnswer(correct) {
+    this.roundsPlayed++;
+    if (correct) {
+      this.roundsCorrect++;
+      const existing = this.cardsById.get(this.currentFamilyId);
+      const updated = promoteFromDiagnostic(existing, this.today);
+      updated.familyId = this.currentFamilyId;
+      this.cardsById.set(this.currentFamilyId, updated);
+      saveCard(this.currentFamilyId, updated);
+    }
+    return { correct, pointsGained: 0, multiplier: 1, streak: 0 };
   }
 }

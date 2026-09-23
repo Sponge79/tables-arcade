@@ -2,7 +2,7 @@
 // décoratif déconnecté de la mémorisation. % = moyenne des paliers (0-4) des
 // familles, normalisée sur le palier maximal.
 
-import { MAX_BOX } from './leitner.js';
+import { MAX_BOX, PROMOTION_THRESHOLD } from './leitner.js';
 
 const GROUP_LABELS = {
   'multiplication:zeros-uns': '×0 et ×1',
@@ -25,13 +25,22 @@ const GROUP_LABELS = {
   'subtraction:connues': 'Soustractions déjà connues',
 };
 
+// Une carte au palier 0 avec déjà 1 ou 2 bons rappels espacés (sur 3 requis) est
+// réellement plus avancée qu'une carte jamais vue — le palier entier seul ne le
+// montrerait pas avant plusieurs jours. On utilise donc un palier fractionnaire
+// pour l'affichage, sans jamais falsifier ce qui compte comme "maîtrisé".
+function fractionalBox(card) {
+  if (!card) return 0;
+  return Math.min(MAX_BOX, card.box + card.spacedCorrectStreak / PROMOTION_THRESHOLD);
+}
+
 export function computeProgress(families, cardsById) {
   const groupStats = new Map();
   let totalBoxSum = 0;
 
   for (const family of families) {
     const card = cardsById.get(family.id);
-    const box = card ? card.box : 0;
+    const box = fractionalBox(card);
     totalBoxSum += box;
 
     const key = `${family.operation}:${family.introGroup}`;
@@ -41,7 +50,7 @@ export function computeProgress(families, cardsById) {
     const stats = groupStats.get(key);
     stats.total += 1;
     stats.boxSum += box;
-    if (box >= MAX_BOX) stats.masteredCount += 1;
+    if (card && card.box >= MAX_BOX) stats.masteredCount += 1;
   }
 
   const overallPercent = families.length ? Math.round((totalBoxSum / (families.length * MAX_BOX)) * 100) : 0;
