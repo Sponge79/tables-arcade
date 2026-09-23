@@ -23,3 +23,17 @@ export function saveCard(familyId, card) {
     // stockage indisponible (navigation privée, quota) : la session continue en mémoire seulement
   }
 }
+
+// Efface toute la progression (cartes, séquence, personnage) pour repartir à
+// zéro — utilisé par le bouton "Recommencer à zéro" des réglages. Laisse
+// volontairement intacte la préférence de musique : ce n'est pas de la
+// progression, pas de raison de la perdre.
+export function resetAllProgress() {
+  try {
+    localStorage.removeItem(CARDS_STORAGE_KEY);
+    localStorage.removeItem('tables-arcade:streak:v1');
+    localStorage.removeItem('tables-arcade:avatarTier:v1');
+  } catch {
+    // stockage indisponible : rien à effacer
+  }
+}

@@ -40,7 +40,31 @@
       <button class="sectionDiagnosticBtn" type="button" data-operation="division">Test rapide</button>
     </div>
   </div>
-  <a id="menuParentLink" href="parent.html">Vue parent →</a>
+  <div id="menuLinks">
+    <a id="menuParentLink" href="parent.html">Vue parent →</a>
+    <button id="settingsLink" type="button">Réglages →</button>
+  </div>
+</div>
+
+<div id="settingsScreen" class="hidden">
+  <h1>Réglages</h1>
+
+  <h2>Musique</h2>
+  <div id="trackButtons"></div>
+
+  <h2>Progression</h2>
+  <button id="resetBtn" type="button">Recommencer à zéro</button>
+  <p class="settings-note">Efface toute la progression des 4 sections, la séquence quotidienne et le personnage. Ne peut pas être annulé.</p>
+
+  <div id="resetConfirm" class="hidden">
+    <p>Es-tu sûr ? Toute la progression sera perdue pour de bon.</p>
+    <div id="resetConfirmButtons">
+      <button id="resetCancelBtn" type="button">Annuler</button>
+      <button id="resetConfirmBtn" type="button">Oui, recommencer à zéro</button>
+    </div>
+  </div>
+
+  <button id="settingsBackBtn" type="button">← Retour au menu</button>
 </div>
 
 <div id="app" class="hidden">

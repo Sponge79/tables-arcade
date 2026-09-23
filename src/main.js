@@ -10,11 +10,12 @@
 // la montre en même temps.
 
 import { Session } from './game/session.js';
-import { playCorrect, playWrong, startMusic, toggleMusic } from './game/audio.js';
+import { playCorrect, playWrong, startMusic, toggleMusic, listTracks, getSelectedTrack, setTrack } from './game/audio.js';
 import { initParticles, burst } from './game/particles.js';
 import { initRunner, dashTo, resetRunner } from './game/runner.js';
 import { checkTierUp } from './game/avatar.js';
 import { computeAllOperationsProgress } from './game/summary.js';
+import { resetAllProgress } from './game/storage.js';
 
 const menuScreenEl = document.getElementById('menuScreen');
 const sectionButtons = [...document.querySelectorAll('.sectionBtn')];
@@ -24,6 +25,15 @@ const menuFromEndBtn = document.getElementById('menuFromEndBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const resumeBtn = document.getElementById('resumeBtn');
 const pauseOverlayEl = document.getElementById('pauseOverlay');
+
+const settingsScreenEl = document.getElementById('settingsScreen');
+const settingsLink = document.getElementById('settingsLink');
+const settingsBackBtn = document.getElementById('settingsBackBtn');
+const trackButtonsEl = document.getElementById('trackButtons');
+const resetBtn = document.getElementById('resetBtn');
+const resetConfirmEl = document.getElementById('resetConfirm');
+const resetCancelBtn = document.getElementById('resetCancelBtn');
+const resetConfirmBtn = document.getElementById('resetConfirmBtn');
 
 const appEl = document.getElementById('app');
 const promptEl = document.getElementById('prompt');
@@ -114,8 +124,56 @@ function showMenu() {
   cancelAnimationFrame(timerRAF);
   populateMenu();
   appEl.classList.add('hidden');
+  settingsScreenEl.classList.add('hidden');
   menuScreenEl.classList.remove('hidden');
 }
+
+// --- Réglages : choix de musique, remise à zéro ---
+
+function populateTrackButtons() {
+  trackButtonsEl.innerHTML = '';
+  const selected = getSelectedTrack();
+  for (const track of listTracks()) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `trackBtn${track.id === selected ? ' selected' : ''}`;
+    btn.textContent = track.label;
+    btn.addEventListener('click', () => {
+      unlockAudioOnce();
+      setTrack(track.id);
+      populateTrackButtons();
+    });
+    trackButtonsEl.appendChild(btn);
+  }
+}
+
+function showSettings() {
+  menuScreenEl.classList.add('hidden');
+  resetConfirmEl.classList.add('hidden');
+  populateTrackButtons();
+  settingsScreenEl.classList.remove('hidden');
+}
+
+function hideSettings() {
+  settingsScreenEl.classList.add('hidden');
+  menuScreenEl.classList.remove('hidden');
+  populateMenu();
+}
+
+settingsLink.addEventListener('click', showSettings);
+settingsBackBtn.addEventListener('click', hideSettings);
+
+resetBtn.addEventListener('click', () => {
+  resetConfirmEl.classList.remove('hidden');
+});
+resetCancelBtn.addEventListener('click', () => {
+  resetConfirmEl.classList.add('hidden');
+});
+resetConfirmBtn.addEventListener('click', () => {
+  resetAllProgress();
+  resetConfirmEl.classList.add('hidden');
+  populateMenu();
+});
 
 function startSection(operation, options = {}) {
   menuScreenEl.classList.add('hidden');

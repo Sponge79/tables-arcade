@@ -98,11 +98,142 @@ html, body {
   cursor: pointer;
 }
 
-#menuParentLink {
+#menuLinks {
   margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+#menuParentLink,
+#settingsLink {
   color: #888;
   font-size: 0.85rem;
   text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#settingsScreen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+#settingsScreen h1 {
+  font-size: clamp(1.6rem, 7vw, 2.2rem);
+  margin: 0 0 1.5rem;
+}
+
+#settingsScreen h2 {
+  font-size: 0.95rem;
+  color: #999;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+#trackButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(90vw, 360px);
+  margin-bottom: 2rem;
+}
+
+.trackBtn {
+  padding: 0.85rem 1rem;
+  background: #1c1c1c;
+  border: 2px solid #444;
+  border-radius: 12px;
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.trackBtn.selected {
+  border-color: var(--red);
+  background: #2a0b0e;
+}
+
+#resetBtn {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--red);
+  border: 2px solid var(--red);
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-note {
+  max-width: min(90vw, 360px);
+  color: #888;
+  font-size: 0.8rem;
+  margin: 0.75rem 0 1.5rem;
+}
+
+#resetConfirm {
+  background: #1c1c1c;
+  border: 2px solid var(--red);
+  border-radius: 14px;
+  padding: 1.25rem;
+  width: min(90vw, 360px);
+  margin-bottom: 1.5rem;
+}
+
+#resetConfirm p {
+  margin: 0 0 1rem;
+  font-weight: 700;
+}
+
+#resetConfirmButtons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+#resetCancelBtn,
+#resetConfirmBtn {
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#resetCancelBtn {
+  background: transparent;
+  color: var(--white);
+  border: 2px solid var(--white);
+}
+
+#resetConfirmBtn {
+  background: var(--red);
+  color: var(--white);
+  border: 2px solid var(--red);
+}
+
+#settingsBackBtn {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--white);
+  border: 2px solid var(--white);
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 #menuBtn {
