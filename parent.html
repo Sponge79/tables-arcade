@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprint des tables — Vue parent</title>
+<link rel="stylesheet" href="src/style.css">
+<style>
+  html, body { overflow: auto; height: auto; min-height: 100%; }
+  #parentView {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+  }
+  #parentView h1 {
+    font-size: 1.6rem;
+    margin: 0 0 0.25rem;
+  }
+  #parentView .subtitle {
+    color: #999;
+    font-size: 0.95rem;
+    margin: 0 0 1.75rem;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .card {
+    background: #1c1c1c;
+    border: 2px solid #2a2a2a;
+    border-radius: 14px;
+    padding: 0.9rem 0.5rem;
+    text-align: center;
+  }
+  .card .value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--white);
+  }
+  .card .label {
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 0.25rem;
+  }
+  #parentView h2 {
+    font-size: 1.1rem;
+    margin: 0 0 1rem;
+  }
+  .group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-bottom: 2rem;
+  }
+  #backLink {
+    display: inline-block;
+    color: var(--white);
+    text-decoration: none;
+    font-weight: 700;
+    border: 2px solid var(--white);
+    border-radius: 999px;
+    padding: 0.6rem 1.25rem;
+  }
+  .empty-note {
+    color: #999;
+    font-size: 0.95rem;
+  }
+</style>
+</head>
+<body>
+<div id="parentView">
+  <h1>Vue parent</h1>
+  <p class="subtitle">Un coup d'œil simple — pas un tableau de bord. Tout vient des vrais paliers de mémorisation, rien n'est gonflé artificiellement.</p>
+
+  <div class="cards">
+    <div class="card"><div class="value" id="streakValue">—</div><div class="label">jours d'affilée</div></div>
+    <div class="card"><div class="value" id="masteryValue">—</div><div class="label">maîtrise globale</div></div>
+    <div class="card"><div class="value" id="masteredValue">—</div><div class="label">faits maîtrisés</div></div>
+  </div>
+
+  <p class="empty-note" id="lastPlayedNote"></p>
+
+  <h2>Détail par groupe de faits</h2>
+  <div class="group-list" id="groupList"></div>
+
+  <a id="backLink" href="index.html">← Retour au jeu</a>
+</div>
+
+<script type="module">
+import { buildAllFamilies } from './src/engine/facts.js';
+import { computeProgress } from './src/engine/progress.js';
+import { getStreakState } from './src/game/streak.js';
+
+function loadCards() {
+  try {
+    const raw = localStorage.getItem('tables-arcade:cards:v1');
+    if (!raw) return new Map();
+    return new Map(Object.entries(JSON.parse(raw)));
+  } catch {
+    return new Map();
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return 'jamais encore joué';
+  const d = new Date(`${dateStr}T00:00:00`);
+  return d.toLocaleDateString('fr-CA', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+const families = buildAllFamilies();
+const cardsById = loadCards();
+const { overallPercent, byGroup } = computeProgress(families, cardsById);
+const streak = getStreakState();
+
+const totalMastered = byGroup.reduce((sum, g) => sum + g.masteredCount, 0);
+const totalFacts = byGroup.reduce((sum, g) => sum + g.total, 0);
+
+document.getElementById('streakValue').textContent = `🔥 ${streak.streakCount}`;
+document.getElementById('masteryValue').textContent = `${overallPercent}%`;
+document.getElementById('masteredValue').textContent = `${totalMastered}/${totalFacts}`;
+document.getElementById('lastPlayedNote').textContent = `Dernière session : ${formatDate(streak.lastPlayedDate)}.`;
+
+const groupListEl = document.getElementById('groupList');
+if (byGroup.length === 0) {
+  groupListEl.innerHTML = '<p class="empty-note">Aucune session jouée pour l\'instant.</p>';
+} else {
+  for (const group of byGroup) {
+    const row = document.createElement('div');
+    row.className = 'progress-row';
+    row.innerHTML = `
+      <div class="progress-row-label"><span>${group.label}</span><span>${group.masteredCount}/${group.total}</span></div>
+      <div class="progress-row-bar"><div class="progress-row-fill${group.percent >= 100 ? ' mastered' : ''}" style="width:${group.percent}%"></div></div>
+    `;
+    groupListEl.appendChild(row);
+  }
+}
+</script>
+</body>
+</html>

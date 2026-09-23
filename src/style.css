@@ -346,6 +346,13 @@ html, body {
   cursor: pointer;
 }
 
+#parentLink {
+  margin-top: 0.75rem;
+  color: #888;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
 @keyframes shakeSmall {
   0%, 100% { transform: translate(0, 0); }
   25% { transform: translate(2px, -2px); }

@@ -67,3 +67,7 @@ export function updateStreak(today) {
 export function getStreak() {
   return loadStreak().streakCount;
 }
+
+export function getStreakState() {
+  return loadStreak();
+}
