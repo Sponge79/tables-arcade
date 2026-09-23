@@ -26,101 +26,92 @@ function n(...names) {
   return names.map((name) => (name === null ? null : NOTES[name]));
 }
 
-// Motif de basse générique : rebond fondamentale / quinte / octave, réutilisé
-// par les 3 morceaux (seuls les accords et le tempo changent).
-const BASS_SHAPE = [0, null, 0, null, 2, null, 0, null, 1, null, 0, null, 2, 2, 1, null];
-
-function buildBass({ root, fifth, octave }) {
+function buildBass(shape, { root, fifth, octave }) {
   const table = { 0: NOTES[root], 1: NOTES[fifth], 2: NOTES[octave] };
-  return BASS_SHAPE.map((degree) => (degree === null ? null : table[degree]));
+  return shape.map((degree) => (degree === null ? null : table[degree]));
 }
 
-// --- Morceau 1 : Énergique (celui d'origine) — Am–F–C–G, carré/triangle, 192 BPM.
+// Répète un motif de 4 mesures (1 par accord) sur tout le cycle d'accords —
+// un vrai "hook" qui revient, plutôt qu'un arpège qui change à chaque mesure.
+function repeatMotif(motifPerChord, repeats) {
+  const bars = [];
+  for (let r = 0; r < repeats; r++) bars.push(...motifPerChord);
+  return bars;
+}
+
+// --- Morceau 1 : Énergique — Am–F–C–G, carré/triangle, 192 BPM.
+// Basse : alternance racine/quinte en croches (galop simple, très "course avant").
+// Mélodie : motif syncopé de 2 notes hors-temps (pas d'arpège continu) répété
+// et transposé sur chaque accord — un vrai riff qui rebondit.
 const ENERGIQUE_CHORDS = [
   { root: 'A2', fifth: 'E3', octave: 'A3' },
   { root: 'F2', fifth: 'C3', octave: 'F3' },
   { root: 'C3', fifth: 'G3', octave: 'C4' },
   { root: 'G2', fifth: 'D3', octave: 'G3' },
 ];
-const ENERGIQUE_LEAD_BARS = [
-  n('A4', null, 'C5', null, 'E5', null, 'A5', null, 'E5', null, 'C5', 'D5', 'E5', null, 'D5', null),
-  n('F4', null, 'A4', 'C5', 'F5', null, 'C5', null, 'A4', null, 'C5', 'D5', 'C5', null, 'A4', null),
-  n('E5', null, 'G5', 'A5', 'G5', null, 'E5', null, 'C5', null, 'E5', null, 'G5', 'B4', 'C5', null),
-  n('G4', null, 'B4', null, 'D5', null, 'G5', null, 'D5', null, 'B4', 'A4', 'G4', null, null, null),
-  n(null, null, 'E4', null, 'A4', null, 'C5', null, 'E4', null, 'A4', null, 'C5', 'D5', 'E4', null),
-  n('C4', null, 'F4', null, 'A4', null, 'C5', null, 'A4', null, 'F4', null, 'A4', 'C5', 'F4', null),
-  n('G4', null, 'C5', null, 'E5', null, 'G4', null, 'C5', null, 'E5', null, 'D5', null, 'C5', null),
-  n(null, null, 'D4', null, 'G4', null, 'B4', null, 'D5', null, 'B4', null, 'G4', null, 'D4', null),
-  n('E5', null, 'A5', 'G5', 'E5', null, 'C5', null, 'E5', 'G5', 'A5', null, 'E5', 'D5', 'C5', 'E5'),
-  n('C5', null, 'F5', 'E5', 'C5', null, 'A4', null, 'C5', 'D5', 'F5', null, 'C5', 'A4', 'F4', 'A4'),
-  n('E5', null, 'G5', 'A5', 'G5', null, 'E5', null, 'G5', 'A5', 'G5', null, 'E5', 'D5', 'C5', 'E5'),
-  n('D5', null, 'G5', 'A5', 'G5', null, 'D5', null, 'B4', 'D5', 'G4', null, 'D4', 'G4', 'B4', 'D5'),
-  n('A5', null, null, null, 'E5', null, null, null, 'C5', null, null, null, 'A4', null, 'E4', null),
-  n('F5', null, null, null, 'C5', null, null, null, 'A4', null, null, null, 'F4', null, 'C4', null),
-  n('E5', null, null, null, 'C5', null, null, null, 'G4', null, null, null, 'E4', null, 'C4', null),
-  n('D5', null, 'B4', null, null, null, 'G4', null, null, null, 'D4', null, null, null, null, null),
+const ENERGIQUE_BASS_SHAPE = [0, null, 1, null, 0, null, 1, null, 0, null, 1, null, 0, null, 1, null];
+const ENERGIQUE_MOTIF = [
+  n('A4', null, null, 'E5', 'A5', null, 'E5', null, 'A4', null, null, 'C5', 'E5', null, 'A4', null),
+  n('F4', null, null, 'C5', 'F5', null, 'C5', null, 'F4', null, null, 'A4', 'C5', null, 'F4', null),
+  n('C5', null, null, 'G5', 'C5', null, 'G5', null, 'C5', null, null, 'E5', 'G5', null, 'C5', null),
+  n('G4', null, null, 'D5', 'G5', null, 'D5', null, 'G4', null, null, 'B4', 'D5', null, 'G4', null),
 ];
 const ENERGIQUE_CYCLE = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3];
 
 // --- Morceau 2 : Mystérieuse — Am–E–Am–Dm (mineur harmonique, sensible
-// empruntée à E majeur), sinusoïdale, tempo modéré mais qui garde le mouvement.
+// empruntée à E majeur), sinusoïdale. Basse : note pédale tenue (presque immobile,
+// contraste total avec la basse mobile des deux autres). Mélodie : figure
+// descendante de 3 notes qui entre en retard (après un silence), un motif
+// "question" qui se répète — espacé et retenu, mais jamais lent.
 const MYSTERIEUSE_CHORDS = [
   { root: 'A2', fifth: 'E3', octave: 'A3' }, // Am
   { root: 'E2', fifth: 'B2', octave: 'E3' }, // E (majeur emprunté)
   { root: 'D2', fifth: 'A2', octave: 'D3' }, // Dm
 ];
-const MYSTERIEUSE_LEAD_BARS = [
-  n('A4', null, null, null, 'E4', null, null, null, 'C4', null, null, null, 'E4', null, null, null),
-  n('B4', null, null, null, 'GS4', null, null, null, 'E4', null, null, null, 'GS4', null, null, null),
-  n('A4', null, null, null, 'C5', null, null, null, 'E4', null, null, null, 'A4', null, null, null),
-  n('D4', null, null, null, 'F4', null, null, null, 'A4', null, null, null, 'F4', null, null, null),
-  n('E4', null, 'A4', null, 'E4', null, null, null, 'C4', null, 'E4', null, 'A3', null, null, null),
-  n('GS4', null, 'B4', null, 'GS4', null, null, null, 'E4', null, 'GS4', null, 'B3', null, null, null),
-  n('C5', null, 'A4', null, 'E4', null, null, null, 'A4', null, 'C5', null, 'E4', null, null, null),
-  n('F4', null, 'D4', null, 'A4', null, null, null, 'F4', null, 'D4', null, 'A3', null, null, null),
-  n('A4', null, 'C5', null, 'E5', null, 'C5', null, 'A4', null, 'E4', null, 'C5', null, null, null),
-  n('B4', null, 'GS4', null, 'B4', null, 'E5', null, 'GS4', null, 'B4', null, 'GS4', null, null, null),
-  n('E5', null, 'C5', null, 'A4', null, 'E4', null, 'C5', null, 'A4', null, 'E4', null, null, null),
-  n('A4', null, 'F4', null, 'D4', null, 'F4', null, 'A4', null, 'F4', null, 'D4', null, null, null),
+const MYSTERIEUSE_BASS_SHAPE = [0, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null];
+const MYSTERIEUSE_MOTIF = [
+  n(null, null, 'E5', null, 'C5', null, 'A4', null, null, null, 'E5', null, 'C5', null, 'A4', null), // Am
+  n(null, null, 'B4', null, 'GS4', null, 'E4', null, null, null, 'B4', null, 'GS4', null, 'E4', null), // E
+  n(null, null, 'E5', null, 'C5', null, 'A4', null, null, null, 'E5', null, 'C5', null, 'A4', null), // Am
+  n(null, null, 'A4', null, 'F4', null, 'D4', null, null, null, 'A4', null, 'F4', null, 'D4', null), // Dm
 ];
 const MYSTERIEUSE_CYCLE = [0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 0, 2];
 
-// --- Morceau 3 : Épique — C–G–Am–F, carré/scie, tempo rapide, registre large.
+// --- Morceau 3 : Épique — C–G–Am–F, carré (+ harmonie une tierce en dessous
+// pour épaissir le son), tempo rapide. Basse : galop pointé (longue-courte-
+// courte), différent des deux autres. Mélodie : fanfare simple — 4 coups
+// francs par mesure qui dessinent l'accord (pas de course de doubles-croches).
 const EPIQUE_CHORDS = [
   { root: 'C3', fifth: 'G3', octave: 'C4' },
   { root: 'G2', fifth: 'D3', octave: 'G3' },
   { root: 'A2', fifth: 'E3', octave: 'A3' },
   { root: 'F2', fifth: 'C3', octave: 'F3' },
 ];
-const EPIQUE_LEAD_BARS = [
-  n('C5', null, 'E5', null, 'G5', null, 'E5', null, 'C5', null, 'E5', null, 'G5', null, 'E5', null),
-  n('G4', null, 'B4', null, 'D5', null, 'B4', null, 'G4', null, 'B4', null, 'D5', null, 'B4', null),
-  n('A4', null, 'C5', null, 'E5', null, 'C5', null, 'A4', null, 'C5', null, 'E5', null, 'C5', null),
-  n('F4', null, 'A4', null, 'C5', null, 'A4', null, 'F4', null, 'A4', null, 'C5', null, 'G4', null),
-  n(null, null, 'C5', null, 'E5', null, 'G5', null, 'E5', null, 'C5', null, 'E5', null, 'G5', null),
-  n(null, null, 'G4', null, 'B4', null, 'D5', null, 'B4', null, 'G4', null, 'B4', null, 'D5', null),
-  n(null, null, 'A4', null, 'C5', null, 'E5', null, 'C5', null, 'A4', null, 'C5', null, 'E5', null),
-  n(null, null, 'F4', null, 'A4', null, 'C5', null, 'A4', null, 'F4', null, 'A4', null, 'C5', null),
-  n('G5', null, 'E5', 'G5', 'C5', null, 'E5', null, 'G5', null, 'E5', 'G5', 'C5', null, 'E5', null),
-  n('D5', null, 'B4', 'D5', 'G4', null, 'B4', null, 'D5', null, 'B4', 'D5', 'G4', null, 'B4', null),
-  n('E5', null, 'C5', 'E5', 'A4', null, 'C5', null, 'E5', null, 'C5', 'E5', 'A4', null, 'C5', null),
-  n('C5', null, 'A4', 'C5', 'F4', null, 'A4', null, 'C5', null, 'A4', 'C5', 'F4', null, 'G4', null),
-  n('C5', null, null, null, 'G4', null, null, null, 'E5', null, null, null, 'C5', null, null, null),
-  n('G4', null, null, null, 'D4', null, null, null, 'B4', null, null, null, 'G4', null, null, null),
-  n('A4', null, null, null, 'E4', null, null, null, 'C5', null, null, null, 'A4', null, null, null),
-  n('F4', null, null, null, 'C4', null, null, null, 'A4', null, null, null, null, null, null, null),
+const EPIQUE_BASS_SHAPE = [0, null, null, null, null, null, 1, 0, 0, null, null, null, null, null, 1, 0];
+const EPIQUE_MOTIF = [
+  n('C5', null, null, null, 'E5', null, null, null, 'G5', null, null, null, 'C5', null, null, null),
+  n('G4', null, null, null, 'B4', null, null, null, 'D5', null, null, null, 'G5', null, null, null),
+  n('A4', null, null, null, 'C5', null, null, null, 'E5', null, null, null, 'A5', null, null, null),
+  n('F4', null, null, null, 'A4', null, null, null, 'C5', null, null, null, 'F5', null, null, null),
+];
+const EPIQUE_HARMONY_MOTIF = [
+  n('A4', null, null, null, 'C5', null, null, null, 'E5', null, null, null, 'A4', null, null, null),
+  n('E4', null, null, null, 'G4', null, null, null, 'B4', null, null, null, 'E5', null, null, null),
+  n('F4', null, null, null, 'A4', null, null, null, 'C5', null, null, null, 'F5', null, null, null),
+  n('D4', null, null, null, 'F4', null, null, null, 'A4', null, null, null, 'D5', null, null, null),
 ];
 const EPIQUE_CYCLE = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3];
 
-function buildTrack({ label, bpm, leadWave, bassWave, drums, chords, leadBars, cycle }) {
+function buildTrack({ label, bpm, leadWave, bassWave, drums, chords, bassShape, motif, harmonyMotif, cycle }) {
   return {
     label,
     bpm,
     leadWave,
     bassWave,
     drums,
-    leadBars,
-    bassBars: cycle.map((i) => buildBass(chords[i])),
+    leadBars: repeatMotif(motif, cycle.length / motif.length),
+    harmonyBars: harmonyMotif ? repeatMotif(harmonyMotif, cycle.length / harmonyMotif.length) : null,
+    bassBars: cycle.map((i) => buildBass(bassShape, chords[i])),
   };
 }
 
@@ -132,7 +123,8 @@ const TRACKS = {
     bassWave: 'triangle',
     drums: 'full',
     chords: ENERGIQUE_CHORDS,
-    leadBars: ENERGIQUE_LEAD_BARS,
+    bassShape: ENERGIQUE_BASS_SHAPE,
+    motif: ENERGIQUE_MOTIF,
     cycle: ENERGIQUE_CYCLE,
   }),
   mysterieuse: buildTrack({
@@ -142,7 +134,8 @@ const TRACKS = {
     bassWave: 'triangle',
     drums: 'sparse',
     chords: MYSTERIEUSE_CHORDS,
-    leadBars: MYSTERIEUSE_LEAD_BARS,
+    bassShape: MYSTERIEUSE_BASS_SHAPE,
+    motif: MYSTERIEUSE_MOTIF,
     cycle: MYSTERIEUSE_CYCLE,
   }),
   epique: buildTrack({
@@ -152,7 +145,9 @@ const TRACKS = {
     bassWave: 'sawtooth',
     drums: 'full',
     chords: EPIQUE_CHORDS,
-    leadBars: EPIQUE_LEAD_BARS,
+    bassShape: EPIQUE_BASS_SHAPE,
+    motif: EPIQUE_MOTIF,
+    harmonyMotif: EPIQUE_HARMONY_MOTIF,
     cycle: EPIQUE_CYCLE,
   }),
 };
@@ -290,14 +285,14 @@ function bassNote(time, freq, wave) {
   osc.stop(time + 0.17);
 }
 
-function leadNote(time, freq, wave) {
+function leadNote(time, freq, wave, gainMul = 1) {
   const audioCtx = ensureContext();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = wave; // timbre du morceau sélectionné
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(0.001, time);
-  gain.gain.linearRampToValueAtTime(0.09, time + 0.008);
+  gain.gain.linearRampToValueAtTime(0.09 * gainMul, time + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.13);
   osc.connect(gain).connect(audioCtx.destination);
   osc.start(time);
@@ -324,6 +319,10 @@ function scheduleMusic() {
       if (bassFreq) bassNote(nextStepTime, bassFreq, track.bassWave);
       const leadFreq = track.leadBars[bar][step];
       if (leadFreq) leadNote(nextStepTime, leadFreq, track.leadWave);
+      if (track.harmonyBars) {
+        const harmonyFreq = track.harmonyBars[bar][step];
+        if (harmonyFreq) leadNote(nextStepTime, harmonyFreq, track.leadWave, 0.55);
+      }
 
       nextStepTime += stepSec;
       stepIndex++;
