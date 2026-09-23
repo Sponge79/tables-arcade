@@ -8,19 +8,46 @@ let nextStepTime = 0;
 let stepIndex = 0;
 let musicTimeoutId = null;
 
-const BPM = 128;
+const BPM = 172;
 const BEAT_SEC = 60 / BPM;
 const STEP_SEC = BEAT_SEC / 4; // un pas = une double-croche
 const STEPS_PER_BAR = 16;
 
-// Enchaînement d'accords très commun en électro (i–VI–III–VII, ici Am–F–C–G) :
-// une basse (note grave) + un petit motif arpégé par mesure, plutôt qu'un seul
-// battement qui ne change jamais.
+const NOTES = {
+  E2: 82.41, F2: 87.31, G2: 98.0, A2: 110.0, B2: 123.47, C3: 130.81, D3: 146.83, E3: 164.81,
+  F3: 174.61, G3: 196.0, A3: 220.0, B3: 246.94, C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23,
+  G4: 392.0, A4: 440.0, B4: 493.88, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.0,
+};
+
+function n(...names) {
+  return names.map((name) => (name === null ? null : NOTES[name]));
+}
+
+// Phrase de 4 mesures (Am–F–C–G, la même progression qu'avant) mais composée avec
+// une vraie rythmique — croches entraînantes à la basse, quelques doubles-croches
+// dans la mélodie pour l'énergie "chiptune rapide" plutôt qu'une suite de noires.
+// null = silence à ce pas (sur 16 pas par mesure).
 const CHORDS = [
-  { bass: 110.0, arp: [220.0, 261.63, 329.63, 392.0] }, // Am : A2 | A3 C4 E4 G4
-  { bass: 87.31, arp: [174.61, 220.0, 261.63, 349.23] }, // F  : F2 | F3 A3 C4 F4
-  { bass: 130.81, arp: [261.63, 329.63, 392.0, 493.88] }, // C  : C3 | C4 E4 G4 B4
-  { bass: 98.0, arp: [196.0, 246.94, 293.66, 392.0] }, // G  : G2 | G3 B3 D4 G4
+  {
+    // Am
+    bass: n('A2', null, 'A2', null, 'A3', null, 'A2', null, 'E3', null, 'A2', null, 'A3', 'A3', 'E3', null),
+    lead: n('A4', null, 'C5', null, 'E5', null, 'A5', null, 'E5', null, 'C5', 'D5', 'E5', null, 'D5', null),
+  },
+  {
+    // F
+    bass: n('F2', null, 'F2', null, 'F3', null, 'F2', null, 'C3', null, 'F2', null, 'F3', 'F3', 'C3', null),
+    lead: n('F4', null, 'A4', 'C5', 'F5', null, 'C5', null, 'A4', null, 'C5', 'D5', 'C5', null, 'A4', null),
+  },
+  {
+    // C
+    bass: n('C3', null, 'C3', null, 'C4', null, 'C3', null, 'G3', null, 'C3', null, 'C4', 'C4', 'G3', null),
+    lead: n('E5', null, 'G5', 'A5', 'G5', null, 'E5', null, 'C5', null, 'E5', null, 'G5', 'B4', 'C5', null),
+  },
+  {
+    // G
+    bass: n('G2', null, 'G2', null, 'G3', null, 'G2', null, 'D3', null, 'G2', null, 'G3', 'G3', 'D3', null),
+    lead: n('G4', null, 'B4', null, 'D5', null, 'G5', null, 'D5', null, 'B4', 'A4', 'G4', null, null, null),
+  },
 ];
 
 function ensureContext() {
@@ -59,57 +86,75 @@ function kick(time) {
   const gain = audioCtx.createGain();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(120, time);
-  osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+  osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
   gain.gain.setValueAtTime(0.3, time);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.13);
   osc.connect(gain).connect(audioCtx.destination);
   osc.start(time);
-  osc.stop(time + 0.16);
+  osc.stop(time + 0.14);
 }
 
-function hat(time) {
+function noiseBurst(time, gainValue, duration) {
   const audioCtx = ensureContext();
-  const size = Math.floor(audioCtx.sampleRate * 0.03);
+  const size = Math.floor(audioCtx.sampleRate * duration);
   const buffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < size; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / size);
   const noise = audioCtx.createBufferSource();
   noise.buffer = buffer;
   const gain = audioCtx.createGain();
-  gain.gain.value = 0.05;
+  gain.gain.value = gainValue;
   noise.connect(gain).connect(audioCtx.destination);
   noise.start(time);
 }
 
-function bass(time, freq) {
+function hat(time) {
+  noiseBurst(time, 0.045, 0.025);
+}
+
+function snare(time) {
+  const audioCtx = ensureContext();
+  noiseBurst(time, 0.16, 0.09);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = 190;
+  gain.gain.setValueAtTime(0.12, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(time);
+  osc.stop(time + 0.09);
+}
+
+function bassNote(time, freq) {
   const audioCtx = ensureContext();
   const osc = audioCtx.createOscillator();
   const filter = audioCtx.createBiquadFilter();
   const gain = audioCtx.createGain();
-  osc.type = 'sawtooth';
+  osc.type = 'triangle';
   osc.frequency.value = freq;
   filter.type = 'lowpass';
-  filter.frequency.value = 500;
+  filter.frequency.value = 900;
   gain.gain.setValueAtTime(0.001, time);
-  gain.gain.linearRampToValueAtTime(0.22, time + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+  gain.gain.linearRampToValueAtTime(0.24, time + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
   osc.connect(filter).connect(gain).connect(audioCtx.destination);
   osc.start(time);
-  osc.stop(time + 0.4);
+  osc.stop(time + 0.17);
 }
 
-function arpNote(time, freq) {
+function leadNote(time, freq) {
   const audioCtx = ensureContext();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = 'triangle';
+  osc.type = 'square'; // timbre chiptune/8-bit
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(0.001, time);
-  gain.gain.linearRampToValueAtTime(0.1, time + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  gain.gain.linearRampToValueAtTime(0.09, time + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.13);
   osc.connect(gain).connect(audioCtx.destination);
   osc.start(time);
-  osc.stop(time + 0.16);
+  osc.stop(time + 0.14);
 }
 
 function scheduleMusic() {
@@ -120,19 +165,20 @@ function scheduleMusic() {
       const bar = Math.floor(stepIndex / STEPS_PER_BAR) % CHORDS.length;
       const chord = CHORDS[bar];
 
-      if (step % 4 === 0) {
-        kick(nextStepTime);
-        arpNote(nextStepTime, chord.arp[step / 4]);
-        if (step === 0) bass(nextStepTime, chord.bass);
-      } else if (step % 4 === 2) {
-        hat(nextStepTime);
-      }
+      if (step === 0 || step === 8) kick(nextStepTime);
+      if (step === 4 || step === 12) snare(nextStepTime);
+      if (step % 4 === 2) hat(nextStepTime);
+
+      const bassFreq = chord.bass[step];
+      if (bassFreq) bassNote(nextStepTime, bassFreq);
+      const leadFreq = chord.lead[step];
+      if (leadFreq) leadNote(nextStepTime, leadFreq);
 
       nextStepTime += STEP_SEC;
       stepIndex++;
     }
   }
-  musicTimeoutId = setTimeout(scheduleMusic, 100);
+  musicTimeoutId = setTimeout(scheduleMusic, 90);
 }
 
 // À appeler depuis un geste utilisateur (iPad bloque l'audio sans ça).
