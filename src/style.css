@@ -35,6 +35,7 @@ html, body {
   gap: 1rem;
 }
 
+#streak { color: var(--white); }
 #points { color: var(--red); }
 #score { color: #999; font-weight: 600; }
 
@@ -64,6 +65,20 @@ html, body {
   from { transform: scale(1.6); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+#streakBanner {
+  margin: 0.75rem 1.25rem 0;
+  padding: 0.6rem 1rem;
+  background: #1c1c1c;
+  border: 2px solid var(--white);
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  transition: opacity 0.4s ease;
+}
+
+#streakBanner.fading { opacity: 0; }
 
 #stage {
   flex: 1;

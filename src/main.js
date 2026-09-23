@@ -20,6 +20,8 @@ const timerFillEl = document.getElementById('timerFill');
 const timerBarEl = document.getElementById('timerBar');
 const scoreEl = document.getElementById('score');
 const pointsEl = document.getElementById('points');
+const streakEl = document.getElementById('streak');
+const streakBannerEl = document.getElementById('streakBanner');
 const comboBadgeEl = document.getElementById('comboBadge');
 const hintEl = document.getElementById('hint');
 const studyCaptionEl = document.getElementById('studyCaption');
@@ -34,7 +36,34 @@ const runnerEl = document.getElementById('runner');
 initParticles();
 initRunner(runnerEl);
 
+function showStreak(session) {
+  const { streakCount, usedGrace, brokeStreak, isNewDay } = session.dailyStreak;
+  streakEl.textContent = `🔥 ${streakCount}`;
+
+  if (!isNewDay) {
+    streakBannerEl.classList.add('hidden');
+    return;
+  }
+
+  let message;
+  if (usedGrace) {
+    message = `Jour de grâce utilisé — ta séquence continue : ${streakCount} jours !`;
+  } else if (brokeStreak) {
+    message = 'Nouvelle séquence — vas-y !';
+  } else if (streakCount > 1) {
+    message = `🔥 ${streakCount} jours d'affilée !`;
+  } else {
+    message = 'Premier jour de la séquence — bienvenue !';
+  }
+
+  streakBannerEl.textContent = message;
+  streakBannerEl.classList.remove('hidden', 'fading');
+  setTimeout(() => streakBannerEl.classList.add('fading'), 3500);
+  setTimeout(() => streakBannerEl.classList.add('hidden'), 4000);
+}
+
 let session = new Session();
+showStreak(session);
 let currentRound = null;
 let timerRAF = null;
 let phaseStart = 0;
@@ -227,6 +256,7 @@ restartBtn.addEventListener('click', () => {
   stageEl.classList.remove('hidden');
   endScreenEl.classList.add('hidden');
   session = new Session();
+  showStreak(session);
   pointsEl.textContent = '0 pt';
   scoreEl.textContent = '0 / 0';
   startRound();

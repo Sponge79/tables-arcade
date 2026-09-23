@@ -6,6 +6,7 @@
 import { buildAllFamilies, MULT_INTRO_GROUP_ORDER, ADD_INTRO_GROUP_ORDER } from '../engine/facts.js';
 import { createCard, recordAnswer, selectDailyFacts } from '../engine/leitner.js';
 import { buildRound } from './round.js';
+import { updateStreak } from './streak.js';
 
 const STORAGE_KEY = 'tables-arcade:cards:v1';
 const SESSION_ROUND_BUDGET = 50;
@@ -73,6 +74,7 @@ function buildInitialQueue(reviewFamilies, newFamilies) {
 export class Session {
   constructor() {
     this.today = todayStr();
+    this.dailyStreak = updateStreak(this.today);
     this.families = buildAllFamilies();
     this.familiesById = new Map(this.families.map((f) => [f.id, f]));
     this.cardsById = loadCards();
