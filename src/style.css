@@ -80,6 +80,21 @@ html, body {
 
 #streakBanner.fading { opacity: 0; }
 
+#masteryBar {
+  margin: 0.6rem 1.25rem 0;
+  height: 5px;
+  background: #1c1c1c;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#masteryFill {
+  height: 100%;
+  width: 0%;
+  background: var(--white);
+  transition: width 0.3s ease;
+}
+
 #stage {
   flex: 1;
   display: flex;
@@ -222,6 +237,40 @@ html, body {
   font-size: 1.2rem;
   color: #ccc;
 }
+
+#endProgress {
+  width: min(90vw, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.progress-row {
+  text-align: left;
+}
+
+.progress-row-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #aaa;
+  margin-bottom: 0.25rem;
+}
+
+.progress-row-bar {
+  height: 8px;
+  background: #1c1c1c;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-row-fill {
+  height: 100%;
+  background: var(--red);
+}
+
+.progress-row-fill.mastered { background: var(--white); }
 
 #restartBtn {
   margin-top: 1rem;

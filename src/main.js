@@ -22,6 +22,8 @@ const scoreEl = document.getElementById('score');
 const pointsEl = document.getElementById('points');
 const streakEl = document.getElementById('streak');
 const streakBannerEl = document.getElementById('streakBanner');
+const masteryFillEl = document.getElementById('masteryFill');
+const endProgressEl = document.getElementById('endProgress');
 const comboBadgeEl = document.getElementById('comboBadge');
 const hintEl = document.getElementById('hint');
 const studyCaptionEl = document.getElementById('studyCaption');
@@ -62,8 +64,14 @@ function showStreak(session) {
   setTimeout(() => streakBannerEl.classList.add('hidden'), 4000);
 }
 
+function updateMasteryBar(session) {
+  const { overallPercent } = session.getProgress();
+  masteryFillEl.style.width = `${overallPercent}%`;
+}
+
 let session = new Session();
 showStreak(session);
+updateMasteryBar(session);
 let currentRound = null;
 let timerRAF = null;
 let phaseStart = 0;
@@ -200,6 +208,7 @@ function resolveRound(chosenSide) {
   const result = session.submitAnswer(correct);
   scoreEl.textContent = `${session.roundsCorrect} / ${session.roundsPlayed}`;
   pointsEl.textContent = `${session.points} pt`;
+  updateMasteryBar(session);
   stageEl.classList.add(correct ? 'flash-correct' : 'flash-wrong');
 
   const correctSide = currentRound.choices[0] === currentRound.correctAnswer ? choiceLeftEl : choiceRightEl;
@@ -228,10 +237,35 @@ function resolveRound(chosenSide) {
   setTimeout(startRound, 450);
 }
 
+function renderEndProgress(session) {
+  const { byGroup } = session.getProgress();
+  endProgressEl.innerHTML = '';
+  for (const group of byGroup) {
+    const row = document.createElement('div');
+    row.className = 'progress-row';
+
+    const label = document.createElement('div');
+    label.className = 'progress-row-label';
+    label.innerHTML = `<span>${group.label}</span><span>${group.masteredCount}/${group.total}</span>`;
+
+    const bar = document.createElement('div');
+    bar.className = 'progress-row-bar';
+    const fill = document.createElement('div');
+    fill.className = `progress-row-fill${group.percent >= 100 ? ' mastered' : ''}`;
+    fill.style.width = `${group.percent}%`;
+    bar.appendChild(fill);
+
+    row.appendChild(label);
+    row.appendChild(bar);
+    endProgressEl.appendChild(row);
+  }
+}
+
 function endSession() {
   stageEl.classList.add('hidden');
   endScreenEl.classList.remove('hidden');
   endStatsEl.textContent = `${session.roundsCorrect} bonnes réponses sur ${session.roundsPlayed} — ${session.points} points. À demain !`;
+  renderEndProgress(session);
 }
 
 choiceLeftEl.addEventListener('click', () => resolveRound('left'));

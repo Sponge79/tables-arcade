@@ -7,6 +7,7 @@ import { buildAllFamilies, MULT_INTRO_GROUP_ORDER, ADD_INTRO_GROUP_ORDER } from 
 import { createCard, recordAnswer, selectDailyFacts } from '../engine/leitner.js';
 import { buildRound } from './round.js';
 import { updateStreak } from './streak.js';
+import { computeProgress } from '../engine/progress.js';
 
 const STORAGE_KEY = 'tables-arcade:cards:v1';
 const SESSION_ROUND_BUDGET = 50;
@@ -96,6 +97,10 @@ export class Session {
 
   get comboMultiplier() {
     return Math.min(4, 1 + Math.floor(this.correctStreak / 3));
+  }
+
+  getProgress() {
+    return computeProgress(this.families, this.cardsById);
   }
 
   hasNext() {
