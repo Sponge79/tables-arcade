@@ -44,15 +44,23 @@
     color: #999;
     margin-top: 0.25rem;
   }
-  #parentView h2 {
-    font-size: 1.1rem;
+  .operation-block {
+    margin-bottom: 2rem;
+  }
+  .operation-block h2 {
+    font-size: 1.05rem;
+    margin: 0 0 0.15rem;
+  }
+  .operation-block .operation-percent {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 0.9rem;
     margin: 0 0 1rem;
   }
   .group-list {
     display: flex;
     flex-direction: column;
     gap: 0.7rem;
-    margin-bottom: 2rem;
   }
   #backLink {
     display: inline-block;
@@ -82,26 +90,14 @@
 
   <p class="empty-note" id="lastPlayedNote"></p>
 
-  <h2>Détail par groupe de faits</h2>
-  <div class="group-list" id="groupList"></div>
+  <div id="operationBlocks"></div>
 
   <a id="backLink" href="index.html">← Retour au jeu</a>
 </div>
 
 <script type="module">
-import { buildAllFamilies } from './src/engine/facts.js';
-import { computeProgress } from './src/engine/progress.js';
 import { getStreakState } from './src/game/streak.js';
-
-function loadCards() {
-  try {
-    const raw = localStorage.getItem('tables-arcade:cards:v1');
-    if (!raw) return new Map();
-    return new Map(Object.entries(JSON.parse(raw)));
-  } catch {
-    return new Map();
-  }
-}
+import { computeAllOperationsProgress } from './src/game/summary.js';
 
 function formatDate(dateStr) {
   if (!dateStr) return 'jamais encore joué';
@@ -109,32 +105,54 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('fr-CA', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-const families = buildAllFamilies();
-const cardsById = loadCards();
-const { overallPercent, byGroup } = computeProgress(families, cardsById);
+const { overallPercent, perOperation } = computeAllOperationsProgress();
 const streak = getStreakState();
 
-const totalMastered = byGroup.reduce((sum, g) => sum + g.masteredCount, 0);
-const totalFacts = byGroup.reduce((sum, g) => sum + g.total, 0);
+let totalMastered = 0;
+let totalFacts = 0;
+for (const op of perOperation) {
+  for (const g of op.byGroup) {
+    totalMastered += g.masteredCount;
+    totalFacts += g.total;
+  }
+}
 
 document.getElementById('streakValue').textContent = `🔥 ${streak.streakCount}`;
 document.getElementById('masteryValue').textContent = `${overallPercent}%`;
 document.getElementById('masteredValue').textContent = `${totalMastered}/${totalFacts}`;
 document.getElementById('lastPlayedNote').textContent = `Dernière session : ${formatDate(streak.lastPlayedDate)}.`;
 
-const groupListEl = document.getElementById('groupList');
-if (byGroup.length === 0) {
-  groupListEl.innerHTML = '<p class="empty-note">Aucune session jouée pour l\'instant.</p>';
-} else {
-  for (const group of byGroup) {
-    const row = document.createElement('div');
-    row.className = 'progress-row';
-    row.innerHTML = `
-      <div class="progress-row-label"><span>${group.label}</span><span>${group.masteredCount}/${group.total}</span></div>
-      <div class="progress-row-bar"><div class="progress-row-fill${group.percent >= 100 ? ' mastered' : ''}" style="width:${group.percent}%"></div></div>
-    `;
-    groupListEl.appendChild(row);
+const blocksEl = document.getElementById('operationBlocks');
+for (const op of perOperation) {
+  const block = document.createElement('div');
+  block.className = 'operation-block';
+
+  const heading = document.createElement('h2');
+  heading.textContent = op.label;
+  const percentLine = document.createElement('p');
+  percentLine.className = 'operation-percent';
+  percentLine.textContent = `${op.percent}% maîtrisé`;
+
+  const list = document.createElement('div');
+  list.className = 'group-list';
+  if (op.byGroup.length === 0) {
+    list.innerHTML = '<p class="empty-note">Pas encore commencé.</p>';
+  } else {
+    for (const group of op.byGroup) {
+      const row = document.createElement('div');
+      row.className = 'progress-row';
+      row.innerHTML = `
+        <div class="progress-row-label"><span>${group.label}</span><span>${group.masteredCount}/${group.total}</span></div>
+        <div class="progress-row-bar"><div class="progress-row-fill${group.percent >= 100 ? ' mastered' : ''}" style="width:${group.percent}%"></div></div>
+      `;
+      list.appendChild(row);
+    }
   }
+
+  block.appendChild(heading);
+  block.appendChild(percentLine);
+  block.appendChild(list);
+  blocksEl.appendChild(block);
 }
 </script>
 </body>

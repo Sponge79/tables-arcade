@@ -7,8 +7,33 @@
 <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
-<div id="app">
+<div id="menuScreen">
+  <h1>Sprint des tables</h1>
+  <p class="subtitle">Choisis une section pour commencer.</p>
+  <div id="sectionButtons">
+    <button class="sectionBtn" type="button" data-operation="addition">
+      <span class="sectionBtn-label">Addition</span>
+      <span class="sectionBtn-percent">0%</span>
+    </button>
+    <button class="sectionBtn" type="button" data-operation="subtraction">
+      <span class="sectionBtn-label">Soustraction</span>
+      <span class="sectionBtn-percent">0%</span>
+    </button>
+    <button class="sectionBtn" type="button" data-operation="multiplication">
+      <span class="sectionBtn-label">Multiplication</span>
+      <span class="sectionBtn-percent">0%</span>
+    </button>
+    <button class="sectionBtn" type="button" data-operation="division">
+      <span class="sectionBtn-label">Division</span>
+      <span class="sectionBtn-percent">0%</span>
+    </button>
+  </div>
+  <a id="menuParentLink" href="parent.html">Vue parent →</a>
+</div>
+
+<div id="app" class="hidden">
   <div id="hud">
+    <button id="menuBtn" type="button" aria-label="Retour au menu">←</button>
     <span id="streak">🔥 0</span>
     <span id="points">0 pt</span>
     <span id="score">0 / 0</span>
@@ -44,7 +69,10 @@
     <h1>Session terminée !</h1>
     <p id="endStats"></p>
     <div id="endProgress"></div>
-    <button id="restartBtn" type="button">Rejouer (test)</button>
+    <div id="endButtons">
+      <button id="restartBtn" type="button">Rejouer cette section</button>
+      <button id="menuFromEndBtn" type="button">Choisir une autre section</button>
+    </div>
     <a id="parentLink" href="parent.html">Vue parent →</a>
   </div>
 </div>

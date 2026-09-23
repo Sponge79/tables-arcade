@@ -1,6 +1,8 @@
 // Boucle de jeu : un geste par round (choisir gauche ou droite), résultat immédiat,
 // enchaînement sans coupure vers le round suivant. Aucune logique pédagogique ici —
-// tout vient de Session (game/session.js).
+// tout vient de Session (game/session.js). Chaque section (addition, soustraction,
+// multiplication, division) a sa propre progression Leitner indépendante ; le menu
+// permet de choisir laquelle jouer.
 //
 // Un round avec astuce se joue en deux temps : d'abord un temps d'étude calme, sans
 // chrono de réponse ni choix affichés (juste lire/comprendre la stratégie), puis
@@ -12,6 +14,12 @@ import { playCorrect, playWrong, startMusic, toggleMusic } from './game/audio.js
 import { initParticles, burst } from './game/particles.js';
 import { initRunner, dashTo, resetRunner } from './game/runner.js';
 import { checkTierUp } from './game/avatar.js';
+import { computeAllOperationsProgress } from './game/summary.js';
+
+const menuScreenEl = document.getElementById('menuScreen');
+const sectionButtons = [...document.querySelectorAll('.sectionBtn')];
+const menuBtn = document.getElementById('menuBtn');
+const menuFromEndBtn = document.getElementById('menuFromEndBtn');
 
 const appEl = document.getElementById('app');
 const promptEl = document.getElementById('prompt');
@@ -40,57 +48,14 @@ const runnerEl = document.getElementById('runner');
 initParticles();
 initRunner(runnerEl);
 
-function showStreak(session) {
-  const { streakCount, usedGrace, brokeStreak, isNewDay } = session.dailyStreak;
-  streakEl.textContent = `🔥 ${streakCount}`;
-
-  if (!isNewDay) {
-    streakBannerEl.classList.add('hidden');
-    return;
-  }
-
-  let message;
-  if (usedGrace) {
-    message = `Jour de grâce utilisé — ta séquence continue : ${streakCount} jours !`;
-  } else if (brokeStreak) {
-    message = 'Nouvelle séquence — vas-y !';
-  } else if (streakCount > 1) {
-    message = `🔥 ${streakCount} jours d'affilée !`;
-  } else {
-    message = 'Premier jour de la séquence — bienvenue !';
-  }
-
-  streakBannerEl.textContent = message;
-  streakBannerEl.classList.remove('hidden', 'fading');
-  setTimeout(() => streakBannerEl.classList.add('fading'), 3500);
-  setTimeout(() => streakBannerEl.classList.add('hidden'), 4000);
-}
-
-function updateAvatar(session) {
-  const { overallPercent } = session.getProgress();
-  masteryFillEl.style.width = `${overallPercent}%`;
-
-  const { tier, leveledUp } = checkTierUp(overallPercent);
-  runnerEl.classList.remove('tier-0', 'tier-1', 'tier-2', 'tier-3', 'tier-4');
-  runnerEl.classList.add(`tier-${tier}`);
-
-  if (leveledUp) {
-    avatarBannerEl.textContent = `Ton personnage évolue ! (palier ${tier}/4)`;
-    avatarBannerEl.classList.remove('hidden', 'fading');
-    setTimeout(() => avatarBannerEl.classList.add('fading'), 3500);
-    setTimeout(() => avatarBannerEl.classList.add('hidden'), 4000);
-  }
-}
-
-let session = new Session();
-showStreak(session);
-updateAvatar(session);
+let session = null;
 let currentRound = null;
 let timerRAF = null;
 let phaseStart = 0;
 let resolved = false;
 let audioUnlocked = false;
 let studying = false;
+let sectionActive = false;
 
 // Phrases d'encouragement variables — pas la même récompense à chaque fois,
 // sans système de loot : juste un peu d'imprévisibilité sympathique.
@@ -121,7 +86,99 @@ function unlockAudioOnce() {
   startMusic();
 }
 
+// --- Menu de sélection de section ---
+
+function populateMenu() {
+  const { perOperation } = computeAllOperationsProgress();
+  const byOperation = new Map(perOperation.map((o) => [o.operation, o]));
+  for (const btn of sectionButtons) {
+    const info = byOperation.get(btn.dataset.operation);
+    btn.querySelector('.sectionBtn-percent').textContent = `${info ? info.percent : 0}%`;
+  }
+}
+
+function showMenu() {
+  sectionActive = false;
+  resolved = true;
+  studying = false;
+  cancelAnimationFrame(timerRAF);
+  populateMenu();
+  appEl.classList.add('hidden');
+  menuScreenEl.classList.remove('hidden');
+}
+
+function startSection(operation) {
+  menuScreenEl.classList.add('hidden');
+  appEl.classList.remove('hidden');
+  stageEl.classList.remove('hidden');
+  endScreenEl.classList.add('hidden');
+
+  session = new Session(operation);
+  sectionActive = true;
+  pointsEl.textContent = '0 pt';
+  scoreEl.textContent = '0 / 0';
+  showStreak(session);
+  updateAvatar(session);
+  startRound();
+}
+
+for (const btn of sectionButtons) {
+  btn.addEventListener('click', () => startSection(btn.dataset.operation));
+}
+menuBtn.addEventListener('click', showMenu);
+menuFromEndBtn.addEventListener('click', showMenu);
+
+// --- HUD : séquence quotidienne, maîtrise, personnage ---
+
+function showStreak(session) {
+  const { streakCount, usedGrace, brokeStreak, isNewDay } = session.dailyStreak;
+  streakEl.textContent = `🔥 ${streakCount}`;
+
+  if (!isNewDay) {
+    streakBannerEl.classList.add('hidden');
+    return;
+  }
+
+  let message;
+  if (usedGrace) {
+    message = `Jour de grâce utilisé — ta séquence continue : ${streakCount} jours !`;
+  } else if (brokeStreak) {
+    message = 'Nouvelle séquence — vas-y !';
+  } else if (streakCount > 1) {
+    message = `🔥 ${streakCount} jours d'affilée !`;
+  } else {
+    message = 'Premier jour de la séquence — bienvenue !';
+  }
+
+  streakBannerEl.textContent = message;
+  streakBannerEl.classList.remove('hidden', 'fading');
+  setTimeout(() => streakBannerEl.classList.add('fading'), 3500);
+  setTimeout(() => streakBannerEl.classList.add('hidden'), 4000);
+}
+
+function updateAvatar(session) {
+  // La barre du HUD reflète la section en cours ; le personnage, lui, représente
+  // la maîtrise globale des 4 sections combinées.
+  const { overallPercent } = session.getProgress();
+  masteryFillEl.style.width = `${overallPercent}%`;
+
+  const { overallPercent: combinedPercent } = computeAllOperationsProgress();
+  const { tier, leveledUp } = checkTierUp(combinedPercent);
+  runnerEl.classList.remove('tier-0', 'tier-1', 'tier-2', 'tier-3', 'tier-4');
+  runnerEl.classList.add(`tier-${tier}`);
+
+  if (leveledUp) {
+    avatarBannerEl.textContent = `Ton personnage évolue ! (palier ${tier}/4)`;
+    avatarBannerEl.classList.remove('hidden', 'fading');
+    setTimeout(() => avatarBannerEl.classList.add('fading'), 3500);
+    setTimeout(() => avatarBannerEl.classList.add('hidden'), 4000);
+  }
+}
+
+// --- Boucle de jeu ---
+
 function startRound() {
+  if (!sectionActive) return;
   if (!session.hasNext()) {
     endSession();
     return;
@@ -300,14 +357,7 @@ muteBtn.addEventListener('click', () => {
 });
 
 restartBtn.addEventListener('click', () => {
-  stageEl.classList.remove('hidden');
-  endScreenEl.classList.add('hidden');
-  session = new Session();
-  showStreak(session);
-  updateAvatar(session);
-  pointsEl.textContent = '0 pt';
-  scoreEl.textContent = '0 / 0';
-  startRound();
+  startSection(session.operation);
 });
 
-startRound();
+showMenu();

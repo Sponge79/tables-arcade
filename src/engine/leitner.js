@@ -14,12 +14,6 @@ const INTERVAL_DAYS = [1, 3, 7, 18, 30];
 // pour monter de palier — une seule bonne réponse ne prouve pas la mémorisation.
 const PROMOTION_THRESHOLD = 3;
 
-// Palier à partir duquel les vues "inverses" d'une famille (division, soustraction)
-// sont considérées comme une simple relecture d'un fait déjà solide plutôt qu'un
-// nouvel apprentissage — voir section 1.2 du prompt produit.
-const DIVISION_UNLOCK_BOX = 2;
-const SUBTRACTION_UNLOCK_BOX = 1;
-
 export function createCard(familyId, today) {
   return {
     familyId,
@@ -67,14 +61,6 @@ export function recordAnswer(card, correct, today) {
   return next;
 }
 
-export function getUnlockedViews(family, card, allViews) {
-  const box = card ? card.box : -1;
-  if (family.operation === 'mult-div') {
-    return box >= DIVISION_UNLOCK_BOX ? allViews : allViews.filter((v) => v.kind === 'mult');
-  }
-  return box >= SUBTRACTION_UNLOCK_BOX ? allViews : allViews.filter((v) => v.kind === 'add');
-}
-
 // Un groupe d'introduction est "ouvert" une fois que toutes les familles du groupe
 // précédent (même type d'opération) ont déjà été vues au moins une fois — pas besoin
 // d'être maîtrisées, juste introduites, pour ne pas bloquer la progression.
@@ -93,11 +79,12 @@ function openIntroGroups(families, cardsById, groupOrder) {
   return open;
 }
 
-// Décide quels faits sont dus aujourd'hui : les révisions (familles déjà en cours,
-// dueDate atteinte) et les nouveautés (familles jamais vues, plafonnées par session,
-// prises uniquement dans un groupe d'introduction déjà ouvert).
+// Décide quels faits sont dus aujourd'hui, pour UNE section/opération à la fois :
+// les révisions (familles déjà en cours, dueDate atteinte) et les nouveautés
+// (familles jamais vues, plafonnées par session, prises uniquement dans un
+// groupe d'introduction déjà ouvert).
 export function selectDailyFacts(families, cardsById, today, options = {}) {
-  const { maxNewFacts = 4, multIntroGroupOrder = [], addIntroGroupOrder = [] } = options;
+  const { maxNewFacts = 4, introGroupOrder = [] } = options;
 
   const reviewFamilies = [];
   for (const family of families) {
@@ -105,16 +92,12 @@ export function selectDailyFacts(families, cardsById, today, options = {}) {
     if (card && isDue(card, today)) reviewFamilies.push(family);
   }
 
-  const multFamilies = families.filter((f) => f.operation === 'mult-div');
-  const addFamilies = families.filter((f) => f.operation === 'add-sub');
-  const openMultGroups = openIntroGroups(multFamilies, cardsById, multIntroGroupOrder);
-  const openAddGroups = openIntroGroups(addFamilies, cardsById, addIntroGroupOrder);
+  const openGroups = openIntroGroups(families, cardsById, introGroupOrder);
 
   const newFamilies = [];
   for (const family of families) {
     if (newFamilies.length >= maxNewFacts) break;
     if (cardsById.has(family.id)) continue;
-    const openGroups = family.operation === 'mult-div' ? openMultGroups : openAddGroups;
     if (openGroups.has(family.introGroup)) newFamilies.push(family);
   }
 

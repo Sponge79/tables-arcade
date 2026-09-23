@@ -1,16 +1,19 @@
-// Relie le moteur de mémorisation à une session de jeu : construit la file de rounds
-// du jour, persiste les cartes Leitner en local, ajuste légèrement le temps imparti
-// selon la réussite récente (zone de flow), et replanifie les nouveautés/erreurs plus
-// loin dans la même session (pas seulement le lendemain).
+// Relie le moteur de mémorisation à une session de jeu, pour UNE opération/section
+// à la fois : construit la file de rounds, persiste les cartes Leitner en local,
+// ajuste légèrement le temps imparti selon la réussite récente (zone de flow), et
+// prolonge la pratique (révisions recyclées) jusqu'à ~10-15 minutes réelles plutôt
+// que de s'arrêter dès que les quelques nouveautés du jour sont épuisées.
 
-import { buildAllFamilies, MULT_INTRO_GROUP_ORDER, ADD_INTRO_GROUP_ORDER } from '../engine/facts.js';
+import { buildOperationFamilies, introGroupOrderFor } from '../engine/facts.js';
 import { createCard, recordAnswer, selectDailyFacts } from '../engine/leitner.js';
 import { buildRound } from './round.js';
 import { updateStreak } from './streak.js';
 import { computeProgress } from '../engine/progress.js';
+import { loadAllCards, saveCard } from './storage.js';
 
-const STORAGE_KEY = 'tables-arcade:cards:v1';
-const SESSION_ROUND_BUDGET = 50;
+const SESSION_ROUND_BUDGET = 400; // filet de sécurité ; c'est le temps, pas ce compteur, qui limite la session
+const TARGET_SESSION_MS = 13 * 60 * 1000; // dosage visé : 10-15 minutes par jour
+const MAX_SESSION_MS = 20 * 60 * 1000; // garde-fou si jamais le recyclage tournait en rond
 const BASE_TIME_MS = 3500;
 const MIN_TIME_MS = 1500;
 const MAX_TIME_MS = 5000;
@@ -22,24 +25,6 @@ const MAX_NEW_FACTS_PER_SESSION = 4;
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function loadCards() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Map();
-    return new Map(Object.entries(JSON.parse(raw)));
-  } catch {
-    return new Map();
-  }
-}
-
-function saveCards(cardsById) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(cardsById)));
-  } catch {
-    // stockage indisponible (navigation privée, quota) : la session continue en mémoire seulement
-  }
 }
 
 function shuffle(arr) {
@@ -73,17 +58,23 @@ function buildInitialQueue(reviewFamilies, newFamilies) {
 }
 
 export class Session {
-  constructor() {
+  constructor(operation) {
+    this.operation = operation;
     this.today = todayStr();
+    this.startedAt = Date.now();
     this.dailyStreak = updateStreak(this.today);
-    this.families = buildAllFamilies();
+    this.families = buildOperationFamilies(operation);
     this.familiesById = new Map(this.families.map((f) => [f.id, f]));
-    this.cardsById = loadCards();
+
+    const allCards = loadAllCards();
+    this.cardsById = new Map();
+    for (const family of this.families) {
+      if (allCards.has(family.id)) this.cardsById.set(family.id, allCards.get(family.id));
+    }
 
     const { reviewFamilies, newFamilies } = selectDailyFacts(this.families, this.cardsById, this.today, {
       maxNewFacts: MAX_NEW_FACTS_PER_SESSION,
-      multIntroGroupOrder: MULT_INTRO_GROUP_ORDER,
-      addIntroGroupOrder: ADD_INTRO_GROUP_ORDER,
+      introGroupOrder: introGroupOrderFor(operation),
     });
 
     this.queue = buildInitialQueue(reviewFamilies, newFamilies);
@@ -103,8 +94,26 @@ export class Session {
     return computeProgress(this.families, this.cardsById);
   }
 
+  elapsedMs() {
+    return Date.now() - this.startedAt;
+  }
+
+  // Une fois les révisions dues et les nouveautés épuisées, on continue à
+  // pratiquer (faits déjà rencontrés aujourd'hui ou avant) plutôt que de
+  // s'arrêter après une poignée de rounds — jusqu'au dosage visé.
+  refillQueue() {
+    const candidates = this.families.filter((f) => this.cardsById.has(f.id));
+    if (candidates.length === 0) return false;
+    this.queue.push(...shuffle(candidates).map((f) => f.id));
+    return true;
+  }
+
   hasNext() {
-    return this.queue.length > 0 && this.roundsPlayed < SESSION_ROUND_BUDGET;
+    const elapsed = this.elapsedMs();
+    if (this.queue.length === 0 && elapsed < TARGET_SESSION_MS) {
+      this.refillQueue();
+    }
+    return this.queue.length > 0 && elapsed < MAX_SESSION_MS && this.roundsPlayed < SESSION_ROUND_BUDGET;
   }
 
   nextRound() {
@@ -126,7 +135,7 @@ export class Session {
     const timeBudget = showHint ? FIRST_ATTEMPT_TIME_MS : this.timeBudgetMs;
     const studyTimeMs = showHint ? STUDY_TIME_MS : null;
 
-    return buildRound(family, card, timeBudget, showHint, studyTimeMs);
+    return buildRound(family, timeBudget, showHint, studyTimeMs);
   }
 
   submitAnswer(correct) {
@@ -134,7 +143,7 @@ export class Session {
     const wasFirstExposure = card.totalSeen === 0;
     const updated = recordAnswer(card, correct, this.today);
     this.cardsById.set(this.currentFamilyId, updated);
-    saveCards(this.cardsById);
+    saveCard(this.currentFamilyId, updated);
 
     this.roundsPlayed++;
     let pointsGained = 0;

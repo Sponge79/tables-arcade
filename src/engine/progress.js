@@ -5,15 +5,24 @@
 import { MAX_BOX } from './leitner.js';
 
 const GROUP_LABELS = {
-  'zeros-uns': '×0 et ×1',
-  'deux-cinq-dix': '×2, ×5, ×10',
-  carres: 'Les carrés',
-  'quatre-huit': '×4 et ×8',
-  'trois-six': '×3 et ×6',
-  neuf: '×9',
-  'sept-et-reste': '×7 et le reste',
-  'passage-dizaine': 'Additions qui passent la dizaine',
-  connues: 'Additions déjà connues',
+  'multiplication:zeros-uns': '×0 et ×1',
+  'multiplication:deux-cinq-dix': '×2, ×5, ×10',
+  'multiplication:carres': 'Les carrés',
+  'multiplication:quatre-huit': '×4 et ×8',
+  'multiplication:trois-six': '×3 et ×6',
+  'multiplication:neuf': '×9',
+  'multiplication:sept-et-reste': '×7 et le reste',
+  'division:zeros-uns': '÷1',
+  'division:deux-cinq-dix': '÷2, ÷5, ÷10',
+  'division:carres': 'Envers des carrés',
+  'division:quatre-huit': '÷4 et ÷8',
+  'division:trois-six': '÷3 et ÷6',
+  'division:neuf': '÷9',
+  'division:sept-et-reste': '÷7 et le reste',
+  'addition:passage-dizaine': 'Additions qui passent la dizaine',
+  'addition:connues': 'Additions déjà connues',
+  'subtraction:passage-dizaine': 'Soustractions qui passent la dizaine',
+  'subtraction:connues': 'Soustractions déjà connues',
 };
 
 export function computeProgress(families, cardsById) {
@@ -25,10 +34,11 @@ export function computeProgress(families, cardsById) {
     const box = card ? card.box : 0;
     totalBoxSum += box;
 
-    if (!groupStats.has(family.introGroup)) {
-      groupStats.set(family.introGroup, { total: 0, boxSum: 0, masteredCount: 0 });
+    const key = `${family.operation}:${family.introGroup}`;
+    if (!groupStats.has(key)) {
+      groupStats.set(key, { total: 0, boxSum: 0, masteredCount: 0 });
     }
-    const stats = groupStats.get(family.introGroup);
+    const stats = groupStats.get(key);
     stats.total += 1;
     stats.boxSum += box;
     if (box >= MAX_BOX) stats.masteredCount += 1;
@@ -36,9 +46,9 @@ export function computeProgress(families, cardsById) {
 
   const overallPercent = families.length ? Math.round((totalBoxSum / (families.length * MAX_BOX)) * 100) : 0;
 
-  const byGroup = [...groupStats.entries()].map(([groupId, stats]) => ({
-    groupId,
-    label: GROUP_LABELS[groupId] ?? groupId,
+  const byGroup = [...groupStats.entries()].map(([key, stats]) => ({
+    groupId: key,
+    label: GROUP_LABELS[key] ?? key,
     percent: stats.total ? Math.round((stats.boxSum / (stats.total * MAX_BOX)) * 100) : 0,
     masteredCount: stats.masteredCount,
     total: stats.total,

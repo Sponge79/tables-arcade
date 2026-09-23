@@ -2,7 +2,6 @@
 // de faits et de son état Leitner. Ne connaît rien au rendu.
 
 import { viewsForFamily } from '../engine/facts.js';
-import { getUnlockedViews } from '../engine/leitner.js';
 import { strategyHint } from '../engine/strategies.js';
 
 function randomChoice(arr) {
@@ -38,10 +37,9 @@ function distractorsFor(view, family) {
   return [...candidates];
 }
 
-export function buildRound(family, card, timeBudgetMs, showHint = false, studyTimeMs = null) {
-  const allViews = viewsForFamily(family);
-  const unlockedViews = getUnlockedViews(family, card, allViews);
-  const view = randomChoice(unlockedViews);
+export function buildRound(family, timeBudgetMs, showHint = false, studyTimeMs = null) {
+  const views = viewsForFamily(family);
+  const view = randomChoice(views);
   const distractors = distractorsFor(view, family);
   const distractor = randomChoice(distractors.length ? distractors : [view.answer + 1]);
   const choices = Math.random() < 0.5 ? [view.answer, distractor] : [distractor, view.answer];

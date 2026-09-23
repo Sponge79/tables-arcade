@@ -1,142 +1,157 @@
-// Génération des "familles de faits" (1 à 12) et de leur ordre d'introduction pédagogique.
-// Une famille de faits regroupe toutes les questions qui partagent la même mémorisation
-// (ex. 6×7, 7×6, 42÷6, 42÷7 sont une seule famille : une fois le fait su, les 4 vues le sont).
-
-const RANGE_MIN = 0;
-const RANGE_MAX = 12;
+// Génération des faits pour chacune des 4 opérations, traitées comme des sections
+// indépendantes (chacune sa propre progression Leitner) — et de leur ordre
+// d'introduction pédagogique par structure plutôt que 1,2,3...12.
 
 function canonicalPair(a, b) {
   return a <= b ? [a, b] : [b, a];
 }
 
-// Ordre d'introduction des familles ×/÷, par structure plutôt que 1,2,3...12.
-// Chaque famille est assignée au premier groupe qui la couvre ; le dernier groupe
-// ("reste") récupère automatiquement tout ce qui n'a pas encore été assigné
-// (ex. 6×7, 7×8, 7×9, 11×12...) sans qu'on ait à les lister à la main.
-const MULT_INTRO_GROUPS = [
-  { id: 'zeros-uns', label: '×0 et ×1', bValues: [0, 1] },
-  { id: 'deux-cinq-dix', label: '×2, ×5, ×10', bValues: [2, 5, 10] },
-  { id: 'carres', label: 'Les carrés', bValues: 'squares' },
-  { id: 'quatre-huit', label: '×4 et ×8', bValues: [4, 8] },
-  { id: 'trois-six', label: '×3 et ×6', bValues: [3, 6] },
-  { id: 'neuf', label: '×9', bValues: [9] },
-  { id: 'sept-et-reste', label: '×7 et les faits restants', bValues: 'remainder' },
+// Groupes pour ×/÷ (0 à 12) : chaque groupe numéroté enseigne la table complète
+// du nombre (0 à 12) plutôt qu'une liste figée ; le dernier groupe récupère
+// automatiquement tout ce qui n'a pas encore été assigné.
+const MULT_DIV_INTRO_GROUPS = [
+  { id: 'zeros-uns', bValues: [0, 1] },
+  { id: 'deux-cinq-dix', bValues: [2, 5, 10] },
+  { id: 'carres', bValues: 'squares' },
+  { id: 'quatre-huit', bValues: [4, 8] },
+  { id: 'trois-six', bValues: [3, 6] },
+  { id: 'neuf', bValues: [9] },
+  { id: 'sept-et-reste', bValues: 'remainder' },
 ];
+export const MULT_DIV_INTRO_GROUP_ORDER = MULT_DIV_INTRO_GROUPS.map((g) => g.id);
 
-function buildMultiplicationFamilies() {
-  const assigned = new Map(); // "a,b" -> groupId
-  const groupOrder = [];
+function buildMultDivPairs(rangeMin, rangeMax) {
+  const assigned = new Map();
+  const keyOf = ([a, b]) => `${a},${b}`;
 
-  function keyOf([a, b]) {
-    return `${a},${b}`;
-  }
-
-  for (const group of MULT_INTRO_GROUPS) {
-    groupOrder.push(group.id);
+  for (const group of MULT_DIV_INTRO_GROUPS) {
     if (group.bValues === 'squares') {
-      for (let n = RANGE_MIN; n <= RANGE_MAX; n++) {
-        const pair = canonicalPair(n, n);
-        const key = keyOf(pair);
+      for (let n = rangeMin; n <= rangeMax; n++) {
+        const key = keyOf(canonicalPair(n, n));
         if (!assigned.has(key)) assigned.set(key, group.id);
       }
     } else if (group.bValues === 'remainder') {
-      for (let a = RANGE_MIN; a <= RANGE_MAX; a++) {
-        for (let b = a; b <= RANGE_MAX; b++) {
+      for (let a = rangeMin; a <= rangeMax; a++) {
+        for (let b = a; b <= rangeMax; b++) {
           const key = keyOf([a, b]);
           if (!assigned.has(key)) assigned.set(key, group.id);
         }
       }
     } else {
       for (const b of group.bValues) {
-        for (let a = RANGE_MIN; a <= RANGE_MAX; a++) {
-          const pair = canonicalPair(a, b);
-          const key = keyOf(pair);
+        for (let a = rangeMin; a <= rangeMax; a++) {
+          const key = keyOf(canonicalPair(a, b));
           if (!assigned.has(key)) assigned.set(key, group.id);
         }
       }
     }
   }
 
-  const families = [];
-  for (const [key, groupId] of assigned) {
+  const pairs = [];
+  for (const [key, introGroup] of assigned) {
     const [a, b] = key.split(',').map(Number);
-    families.push({
-      id: `mult-${a}x${b}`,
-      operation: 'mult-div',
-      a,
-      b,
-      result: a * b,
-      introGroup: groupId,
-    });
+    pairs.push({ a, b, introGroup });
   }
-  families.sort((f1, f2) => groupOrder.indexOf(f1.introGroup) - groupOrder.indexOf(f2.introGroup));
-  return families;
+  pairs.sort((p1, p2) => MULT_DIV_INTRO_GROUP_ORDER.indexOf(p1.introGroup) - MULT_DIV_INTRO_GROUP_ORDER.indexOf(p2.introGroup));
+  return pairs;
 }
 
-// Addition/soustraction : on suppose qu'un enfant de 10 ans maîtrise déjà une bonne partie
-// des faits 1-12. On priorise les faits qui "passent la dizaine" (ex. 7+8=15), statistiquement
-// les plus lents/erronés ; le reste existe dans le système mais démarre en priorité basse.
+// Addition/soustraction (1 à 12) : on suppose qu'un enfant de 10 ans maîtrise déjà
+// une bonne partie des faits 1-12. On priorise ceux qui "passent la dizaine"
+// (ex. 7+8=15), statistiquement les plus lents/erronés.
+export const ADD_SUB_INTRO_GROUP_ORDER = ['passage-dizaine', 'connues'];
+
 function crossesTen(a, b) {
   return a <= 9 && b <= 9 && a + b >= 10;
 }
 
-function buildAdditionFamilies() {
-  const families = [];
-  const seen = new Set();
-  for (let a = 1; a <= RANGE_MAX; a++) {
-    for (let b = a; b <= RANGE_MAX; b++) {
-      const key = `${a},${b}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      families.push({
-        id: `add-${a}+${b}`,
-        operation: 'add-sub',
-        a,
-        b,
-        result: a + b,
-        introGroup: crossesTen(a, b) ? 'passage-dizaine' : 'connues',
-      });
+function buildAddSubPairs() {
+  const pairs = [];
+  for (let a = 1; a <= 12; a++) {
+    for (let b = a; b <= 12; b++) {
+      pairs.push({ a, b, introGroup: crossesTen(a, b) ? 'passage-dizaine' : 'connues' });
     }
   }
-  families.sort((f1, f2) => (f1.introGroup === f2.introGroup ? 0 : f1.introGroup === 'passage-dizaine' ? -1 : 1));
-  return families;
+  pairs.sort((p1, p2) => (p1.introGroup === p2.introGroup ? 0 : p1.introGroup === 'passage-dizaine' ? -1 : 1));
+  return pairs;
 }
 
-// Les 4 vues jouables d'une famille ×/÷ : a×b, b×a, résultat÷a, résultat÷b.
-// Les vues de division ne sont exposées par le moteur (getUnlockedViews) qu'une fois
-// la famille jugée "maîtrisée" (voir leitner.js), donc elles ne sont pas listées ici
-// comme faits à part — juste comme vues alternatives de la même famille.
-function multDivViews(family) {
-  const { a, b, result } = family;
-  const views = [
-    { kind: 'mult', prompt: [a, '×', b], answer: result },
-  ];
-  if (a !== b) views.push({ kind: 'mult', prompt: [b, '×', a], answer: result });
-  if (a !== 0 && b !== 0) {
-    views.push({ kind: 'div', prompt: [result, '÷', a], answer: b });
-    if (a !== b) views.push({ kind: 'div', prompt: [result, '÷', b], answer: a });
+export function buildOperationFamilies(operation) {
+  if (operation === 'multiplication') {
+    return buildMultDivPairs(0, 12).map(({ a, b, introGroup }) => ({
+      id: `mult-${a}x${b}`,
+      operation,
+      a,
+      b,
+      result: a * b,
+      introGroup,
+    }));
   }
-  return views;
+  if (operation === 'division') {
+    // Diviser par 0 n'existe pas : on exclut les paires dont le facteur "a" est 0.
+    return buildMultDivPairs(0, 12)
+      .filter(({ a }) => a >= 1)
+      .map(({ a, b, introGroup }) => ({
+        id: `div-${a}x${b}`,
+        operation,
+        a,
+        b,
+        result: a * b,
+        introGroup,
+      }));
+  }
+  if (operation === 'addition') {
+    return buildAddSubPairs().map(({ a, b, introGroup }) => ({
+      id: `add-${a}+${b}`,
+      operation,
+      a,
+      b,
+      result: a + b,
+      introGroup,
+    }));
+  }
+  if (operation === 'subtraction') {
+    return buildAddSubPairs().map(({ a, b, introGroup }) => ({
+      id: `sub-${a}+${b}`,
+      operation,
+      a,
+      b,
+      result: a + b,
+      introGroup,
+    }));
+  }
+  throw new Error(`Opération inconnue : ${operation}`);
 }
 
-function addSubViews(family) {
-  const { a, b, result } = family;
-  const views = [
-    { kind: 'add', prompt: [a, '+', b], answer: result },
-  ];
-  if (a !== b) views.push({ kind: 'add', prompt: [b, '+', a], answer: result });
-  views.push({ kind: 'sub', prompt: [result, '−', a], answer: b });
+export const OPERATIONS = ['addition', 'subtraction', 'multiplication', 'division'];
+
+export function introGroupOrderFor(operation) {
+  return operation === 'multiplication' || operation === 'division' ? MULT_DIV_INTRO_GROUP_ORDER : ADD_SUB_INTRO_GROUP_ORDER;
+}
+
+// Les vues jouables d'une famille — toutes appartiennent à la même opération
+// (plus de vues "inverses" débloquées entre opérations : chaque section est
+// désormais indépendante).
+export function viewsForFamily(family) {
+  const { operation, a, b, result } = family;
+
+  if (operation === 'multiplication') {
+    const views = [{ kind: 'mult', prompt: [a, '×', b], answer: result }];
+    if (a !== b) views.push({ kind: 'mult', prompt: [b, '×', a], answer: result });
+    return views;
+  }
+  if (operation === 'division') {
+    const views = [{ kind: 'div', prompt: [result, '÷', a], answer: b }];
+    if (a !== b) views.push({ kind: 'div', prompt: [result, '÷', b], answer: a });
+    return views;
+  }
+  if (operation === 'addition') {
+    const views = [{ kind: 'add', prompt: [a, '+', b], answer: result }];
+    if (a !== b) views.push({ kind: 'add', prompt: [b, '+', a], answer: result });
+    return views;
+  }
+  // subtraction
+  const views = [{ kind: 'sub', prompt: [result, '−', a], answer: b }];
   if (a !== b) views.push({ kind: 'sub', prompt: [result, '−', b], answer: a });
   return views;
 }
-
-export function buildAllFamilies() {
-  return [...buildMultiplicationFamilies(), ...buildAdditionFamilies()];
-}
-
-export function viewsForFamily(family) {
-  return family.operation === 'mult-div' ? multDivViews(family) : addSubViews(family);
-}
-
-export const MULT_INTRO_GROUP_ORDER = MULT_INTRO_GROUPS.map((g) => g.id);
-export const ADD_INTRO_GROUP_ORDER = ['passage-dizaine', 'connues'];
