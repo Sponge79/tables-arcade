@@ -4,10 +4,12 @@
 // multiplication, division) a sa propre progression Leitner indépendante ; le menu
 // permet de choisir laquelle jouer.
 //
-// Un round avec astuce se joue en deux temps : d'abord un temps d'étude calme, sans
-// chrono de réponse ni choix affichés (juste lire/comprendre la stratégie), puis
-// l'essai chronométré habituel — pour ne pas faire lire, réfléchir et courir contre
-// la montre en même temps.
+// Un round avec astuce se joue en deux temps : d'abord un écran d'étude plein
+// écran, sans chrono visible, avec l'astuce + un exemple chiffré concret — on
+// avance en touchant "C'est compris", pas sur un délai imposé. Puis un essai
+// chronométré, mais généreusement (voir PRACTICE_TIME_MS dans session.js) pour
+// les tout premiers essais sur un fait, le temps de vraiment calculer plutôt
+// que de deviner sous pression.
 
 import { Session } from './game/session.js';
 import { playCorrect, playWrong, startMusic, toggleMusic, listTracks, getSelectedTrack, setTrack } from './game/audio.js';
@@ -49,8 +51,11 @@ const avatarBannerEl = document.getElementById('avatarBanner');
 const masteryFillEl = document.getElementById('masteryFill');
 const endProgressEl = document.getElementById('endProgress');
 const comboBadgeEl = document.getElementById('comboBadge');
-const hintEl = document.getElementById('hint');
-const studyCaptionEl = document.getElementById('studyCaption');
+const studyScreenEl = document.getElementById('studyScreen');
+const studyPromptEl = document.getElementById('studyPrompt');
+const studyHintEl = document.getElementById('studyHint');
+const studyExampleEl = document.getElementById('studyExample');
+const studyContinueBtn = document.getElementById('studyContinueBtn');
 const stageEl = document.getElementById('stage');
 const endScreenEl = document.getElementById('endScreen');
 const endStatsEl = document.getElementById('endStats');
@@ -73,6 +78,9 @@ let sectionActive = false;
 let isPaused = false;
 let pauseStart = 0;
 let pendingStart = false;
+let studyTimeoutId = null;
+let studyTimeoutStart = 0;
+let studyRemainingMs = 0;
 
 // Phrases d'encouragement variables — pas la même récompense à chaque fois,
 // sans système de loot : juste un peu d'imprévisibilité sympathique.
@@ -120,6 +128,8 @@ function showMenu() {
   studying = false;
   isPaused = false;
   pendingStart = false;
+  clearTimeout(studyTimeoutId);
+  studyScreenEl.classList.add('hidden');
   pauseOverlayEl.classList.add('hidden');
   cancelAnimationFrame(timerRAF);
   populateMenu();
@@ -263,13 +273,6 @@ function startRound() {
   comboBadgeEl.classList.add('hidden');
   resetRunner();
 
-  if (currentRound.hint) {
-    hintEl.textContent = currentRound.hint;
-    hintEl.classList.remove('hidden');
-  } else {
-    hintEl.classList.add('hidden');
-  }
-
   if (currentRound.studyTimeMs) {
     beginStudyPhase();
   } else {
@@ -277,45 +280,39 @@ function startRound() {
   }
 }
 
+// Écran d'étude plein écran, sans chrono visible : l'enfant avance en touchant
+// "C'est compris" quand il est prêt, pas sur un délai imposé. Un filet de
+// sécurité (studyTimeMs, généreux) avance automatiquement si jamais le bouton
+// n'est pas touché, pour ne pas bloquer la session indéfiniment.
 function beginStudyPhase() {
   studying = true;
   resolved = true; // aucune réponse possible tant qu'on n'a pas quitté la phase d'étude
-  choiceLeftEl.classList.add('hidden');
-  choiceRightEl.classList.add('hidden');
-  timerBarEl.classList.add('timer-study');
-  studyCaptionEl.classList.remove('hidden');
-  stageEl.addEventListener('click', skipStudyPhase);
-  phaseStart = performance.now();
-  tickStudyTimer();
+  studyPromptEl.textContent = `${formatPrompt(currentRound.prompt)} = ?`;
+  studyHintEl.textContent = currentRound.hint || '';
+  studyExampleEl.textContent = currentRound.example || '';
+  studyExampleEl.classList.toggle('hidden', !currentRound.example);
+  stageEl.classList.add('hidden');
+  studyScreenEl.classList.remove('hidden');
+  scheduleStudyFallback(currentRound.studyTimeMs);
 }
 
-function skipStudyPhase() {
-  if (!studying) return;
-  cancelAnimationFrame(timerRAF);
-  endStudyPhase();
+function scheduleStudyFallback(ms) {
+  studyTimeoutStart = performance.now();
+  studyRemainingMs = ms;
+  clearTimeout(studyTimeoutId);
+  studyTimeoutId = setTimeout(endStudyPhase, ms);
 }
 
 function endStudyPhase() {
+  if (!studying) return;
   studying = false;
-  stageEl.removeEventListener('click', skipStudyPhase);
-  choiceLeftEl.classList.remove('hidden');
-  choiceRightEl.classList.remove('hidden');
-  timerBarEl.classList.remove('timer-study');
-  studyCaptionEl.classList.add('hidden');
+  clearTimeout(studyTimeoutId);
+  studyScreenEl.classList.add('hidden');
+  stageEl.classList.remove('hidden');
   beginAnswerPhase();
 }
 
-function tickStudyTimer() {
-  if (!studying) return;
-  const elapsed = performance.now() - phaseStart;
-  const remaining = Math.max(0, currentRound.studyTimeMs - elapsed);
-  timerFillEl.style.transform = `scaleX(${remaining / currentRound.studyTimeMs})`;
-  if (remaining <= 0) {
-    endStudyPhase();
-    return;
-  }
-  timerRAF = requestAnimationFrame(tickStudyTimer);
-}
+studyContinueBtn.addEventListener('click', endStudyPhase);
 
 function beginAnswerPhase() {
   choiceLeftEl.textContent = currentRound.choices[0];
@@ -430,7 +427,7 @@ window.addEventListener('keydown', (e) => {
   if (isPaused) return;
   const key = e.key.toLowerCase();
   if (studying && (key === ' ' || key === 'enter')) {
-    skipStudyPhase();
+    endStudyPhase();
     return;
   }
   if (key === 'arrowleft' || key === 'f') resolveRound('left');
@@ -448,6 +445,10 @@ pauseBtn.addEventListener('click', () => {
   isPaused = true;
   pauseStart = performance.now();
   cancelAnimationFrame(timerRAF);
+  if (studying) {
+    clearTimeout(studyTimeoutId);
+    studyRemainingMs = Math.max(0, studyRemainingMs - (pauseStart - studyTimeoutStart));
+  }
   session.pause();
   pauseOverlayEl.classList.remove('hidden');
 });
@@ -464,7 +465,7 @@ resumeBtn.addEventListener('click', () => {
     pendingStart = false;
     startRound();
   } else if (studying) {
-    tickStudyTimer();
+    scheduleStudyFallback(studyRemainingMs);
   } else if (!resolved) {
     tickAnswerTimer();
   }

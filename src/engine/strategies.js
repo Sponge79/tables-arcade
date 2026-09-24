@@ -90,3 +90,92 @@ export function strategyHint(family) {
       return '';
   }
 }
+
+// Un exemple chiffré et concret avec les vrais nombres du fait — l'astuce dit
+// la règle, l'exemple montre le calcul fait avec elle (ex. "×2 = un double"
+// reste abstrait tant qu'on n'a pas vu 6 × 2 = 6 + 6 = 12 écrit noir sur blanc).
+function multiplicationExample({ a, b, result, introGroup }) {
+  switch (introGroup) {
+    case 'zeros-uns':
+      return `${a} × ${b} = ${result}`;
+    case 'deux-cinq-dix': {
+      if (a === 2 || b === 2) {
+        const other = a === 2 ? b : a;
+        return `${other} × 2 = ${other} + ${other} = ${result}`;
+      }
+      if (a === 5 || b === 5) {
+        const other = a === 5 ? b : a;
+        return `${other} × 5 = ${result} (5, 10, 15... jusqu'à ${result})`;
+      }
+      const other = a === 10 ? b : a;
+      return `${other} × 10 = ${result}`;
+    }
+    case 'carres':
+      return `${a} × ${a} = ${result}`;
+    case 'quatre-huit': {
+      if (a === 4 || b === 4) {
+        const other = a === 4 ? b : a;
+        return `${other} × 4 = ${other} × 2 × 2 = ${other * 2} × 2 = ${result}`;
+      }
+      const other = a === 8 ? b : a;
+      return `${other} × 8 = ${other} × 2 × 2 × 2 = ${other * 2} × 2 × 2 = ${other * 4} × 2 = ${result}`;
+    }
+    case 'trois-six': {
+      if (a === 6 || b === 6) {
+        const other = a === 6 ? b : a;
+        return `${other} × 6 = ${other} × 3 × 2 = ${other * 3} × 2 = ${result}`;
+      }
+      const other = a === 3 ? b : a;
+      return `${other} × 3 = (${other} × 2) + ${other} = ${other * 2} + ${other} = ${result}`;
+    }
+    case 'neuf':
+      return `${a} × ${b} = ${result}`;
+    default:
+      return `${a} × ${b} = ${b} × ${a} = ${result}`;
+  }
+}
+
+function divisionExample({ a, b, result, introGroup }) {
+  switch (introGroup) {
+    case 'zeros-uns':
+      return `${result} ÷ ${a} = ${b}`;
+    case 'deux-cinq-dix':
+      if (a === 2 || b === 2) return `${result} ÷ 2 = ${result / 2} (la moitié de ${result})`;
+      return `${result} ÷ ${a === 5 || b === 5 ? 5 : 10} = ${a === 5 || b === 5 ? result / 5 : result / 10}`;
+    case 'carres':
+      return `${result} ÷ ${a} = ${a} (car ${a} × ${a} = ${result})`;
+    default:
+      return `${result} ÷ ${a} = ${b}`;
+  }
+}
+
+function additionExample({ a, b, result, introGroup }) {
+  if (introGroup === 'passage-dizaine') {
+    const toTen = 10 - a;
+    const rest = b - toTen;
+    return `${a} + ${b} = ${a} + ${toTen} + ${rest} = 10 + ${rest} = ${result}`;
+  }
+  return `${a} + ${b} = ${result}`;
+}
+
+function subtractionExample({ a, b, result, introGroup }) {
+  if (introGroup === 'passage-dizaine') {
+    return `${result} − ${b} = ${a} (car ${a} + ${b} = ${result})`;
+  }
+  return `${result} − ${a} = ${b}`;
+}
+
+export function strategyExample(family) {
+  switch (family.operation) {
+    case 'multiplication':
+      return multiplicationExample(family);
+    case 'division':
+      return divisionExample(family);
+    case 'addition':
+      return additionExample(family);
+    case 'subtraction':
+      return subtractionExample(family);
+    default:
+      return '';
+  }
+}

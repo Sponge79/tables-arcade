@@ -16,11 +16,12 @@ const SESSION_ROUND_BUDGET = 400; // filet de sécurité ; c'est le temps, pas c
 const TARGET_SESSION_MS = 60 * 1000; // dosage visé par section : court, pour ne pas lasser
 const MAX_SESSION_MS = 90 * 1000; // garde-fou si jamais le recyclage tournait en rond
 const DIAGNOSTIC_SAMPLE_PER_GROUP = 3; // "test rapide" : un échantillon par groupe, pas tout
-const BASE_TIME_MS = 3500;
-const MIN_TIME_MS = 1500;
-const MAX_TIME_MS = 5000;
-const STUDY_TIME_MS = 12000; // temps calme pour lire l'astuce, sans chrono de réponse ni pression
-const FIRST_ATTEMPT_TIME_MS = 5000; // essai qui suit l'étude : un peu plus généreux qu'une révision normale
+const BASE_TIME_MS = 4000;
+const MIN_TIME_MS = 2000;
+const MAX_TIME_MS = 6000;
+const STUDY_TIME_MS = 45000; // filet de sécurité seulement : l'enfant avance surtout via le bouton "Compris"
+const PRACTICE_TIME_MS = 20000; // vraie période d'étude : le temps de compter/calculer, pas de course
+const PRACTICE_ATTEMPTS = 3; // nombre d'essais généreusement chronométrés avant le mode chronométré normal
 const STRUGGLING_AFTER_ATTEMPTS = 3; // filet de sécurité si un fait reste au palier 0 après ce nombre d'essais
 const MAX_NEW_FACTS_PER_SESSION = 4;
 const DIAGNOSTIC_TIME_MS = 4000; // test rapide : temps fixe, pas d'ajustement adaptatif
@@ -186,13 +187,18 @@ export class Session {
       this.cardsById.set(familyId, card);
     }
 
-    // Astuce montrée à la toute première rencontre, puis seulement en filet de
-    // sécurité si le fait reste bloqué au palier 0 après plusieurs essais —
-    // jamais pendant les révisions normales.
+    // Astuce (+ exemple chiffré) montrée à la toute première rencontre, puis
+    // seulement en filet de sécurité si le fait reste bloqué au palier 0 après
+    // plusieurs essais — jamais pendant les révisions normales.
     const isFirstExposure = card.totalSeen === 0;
     const isStruggling = card.box === 0 && card.totalSeen >= STRUGGLING_AFTER_ATTEMPTS;
     const showHint = isFirstExposure || isStruggling;
-    const timeBudget = showHint ? FIRST_ATTEMPT_TIME_MS : this.timeBudgetMs;
+
+    // Les tout premiers essais sur un fait sont une vraie période d'étude, pas
+    // un test : temps généreux pour calculer/compter, sans pression de vitesse.
+    // Le mode chronométré normal ne démarre qu'après ces quelques essais.
+    const inPractice = card.totalSeen < PRACTICE_ATTEMPTS;
+    const timeBudget = inPractice ? PRACTICE_TIME_MS : this.timeBudgetMs;
     const studyTimeMs = showHint ? STUDY_TIME_MS : null;
 
     return buildRound(family, timeBudget, showHint, studyTimeMs);

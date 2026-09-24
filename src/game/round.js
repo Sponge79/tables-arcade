@@ -2,7 +2,7 @@
 // de faits et de son état Leitner. Ne connaît rien au rendu.
 
 import { viewsForFamily } from '../engine/facts.js';
-import { strategyHint } from '../engine/strategies.js';
+import { strategyHint, strategyExample } from '../engine/strategies.js';
 
 function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -51,6 +51,7 @@ export function buildRound(family, timeBudgetMs, showHint = false, studyTimeMs =
     choices,
     timeBudgetMs,
     hint: showHint ? strategyHint(family) : null,
+    example: showHint ? strategyExample(family) : null,
     studyTimeMs,
   };
 }
